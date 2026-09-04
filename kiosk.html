@@ -165,6 +165,9 @@
   .reasons{display:flex;flex-direction:column;gap:16px;margin-bottom:26px}
   .reasons button{padding:30px;border:2px solid var(--sep);background:#fff;border-radius:22px;font-size:30px;font-weight:700;color:var(--ink);font-family:inherit}
   .reasons button:active{background:var(--bg)}
+  .reasons button.on{border-color:var(--tint);background:var(--tint-bg);color:var(--tint-d)}
+  .rptdetail{width:100%;min-height:120px;padding:24px;border:2px solid var(--sep);border-radius:22px;font-size:26px;font-family:inherit;color:var(--ink);resize:none;margin-bottom:26px;line-height:1.5}
+  .rptdetail:focus{outline:none;border-color:var(--tint)}
   .greet.report{background:#fdeceb;color:#b23b32} .greet.report b{color:#b23b32}
   .modal .em{font-size:92px;line-height:1;margin-bottom:6px}
   .toast{position:absolute;left:50%;bottom:70px;transform:translateX(-50%);background:rgba(28,28,30,.95);color:#fff;
@@ -251,7 +254,7 @@
     </div>
     <div class="hero">
       <div class="mark">
-        <svg class="big" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#1b5e43"/><circle cx="32" cy="30.5" r="19.5" fill="#2e9e6b" opacity=".22"/><path d="M32 53C32 45 30.5 39 33.5 31.5" stroke="#e0f7ec" stroke-width="3.8" stroke-linecap="round" fill="none"/><ellipse cx="22" cy="31" rx="11.5" ry="7.2" transform="rotate(-28 22 31)" fill="#5cc793"/><ellipse cx="42" cy="25.5" rx="13.5" ry="8.6" transform="rotate(32 42 25.5)" fill="#a9e5c8"/></svg>
+        <svg class="big" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#1b5e43"/><path d="M32 53C32 45 30.5 39 33.5 31.5" stroke="#e0f7ec" stroke-width="3.8" stroke-linecap="round" fill="none"/><ellipse cx="22" cy="31" rx="11.5" ry="7.2" transform="rotate(-28 22 31)" fill="#5cc793"/><ellipse cx="42" cy="25.5" rx="13.5" ry="8.6" transform="rotate(32 42 25.5)" fill="#a9e5c8"/></svg>
         <h1>그린나래</h1>
         <p>편안한 독서 공간, 그린나래에 오신 것을 환영합니다 🌿</p>
       </div>
@@ -550,16 +553,23 @@
   // A12: 미사용 좌석 신고
   const REASONS=['장시간 자리 비움','예약 없이 짐만 있음','유의사항 위반','기타'];
   function openReport(id){
+    let picked=null;
     $("#modal").innerHTML=`<h2>${id}번 좌석 신고</h2><p>신고 사유를 선택하세요</p>
       <div class="reasons">${REASONS.map(r=>`<button data-r="${r}">${r}</button>`).join('')}</div>
-      <button class="linkbtn" id="mc">취소</button>`;
+      <textarea class="rptdetail" id="rptdetail" placeholder="세부 사유 (선택 입력)"></textarea>
+      <div class="btns"><button class="cc" id="mc">취소</button><button class="go" id="rsub" disabled>신고</button></div>`;
     $("#ov").hidden=false;
-    document.querySelectorAll('.reasons button').forEach(b=>b.onclick=()=>submitReport(id,b.dataset.r));
+    document.querySelectorAll('.reasons button').forEach(b=>b.onclick=()=>{ picked=b.dataset.r;
+      document.querySelectorAll('.reasons button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); $("#rsub").disabled=false; });
+    $("#rsub").onclick=()=>{ if(picked) submitReport(id, picked, $("#rptdetail").value.trim()); };
     $("#mc").onclick=()=>{ closeModal(); };
   }
-  async function submitReport(seat, reason){
+  async function submitReport(seat, reason, detail){
     if(DEMO){ reportDone(seat); return; }
-    try{ const res=await rpc('report_seat',{p_seat:seat,p_reason:reason}); if(res.ok){ reportDone(seat); } else { toast('신고 실패',true); } }
+    try{ let res;
+      try{ res=await rpc('report_seat',{p_seat:seat,p_reason:reason,p_detail:detail||null}); }
+      catch(e){ res=await rpc('report_seat',{p_seat:seat,p_reason:reason}); }   // 구버전 폴백
+      if(res.ok){ reportDone(seat); } else { toast('신고 실패',true); } }
     catch(e){ toast('통신 오류',true); }
   }
   function reportDone(seat){
@@ -669,7 +679,7 @@
     let rows=[];
     if(DEMO){ rows=[{id:'d1',seat_id:'B8',reason:'짐만 있고 사람 없음',at:new Date(Date.now()-40*60000).toISOString()},{id:'d2',seat_id:'A2',reason:'장시간 자리 비움',at:new Date(Date.now()-3*3600000).toISOString()}]; }
     else { try{ const res=await rpc('admin_reports',{p_pin:adminPin}); rows=((res&&res.rows)||[]).filter(r=>!r.resolved_at); }catch(e){ box.innerHTML='<p class="amuted">불러오기 실패</p>'; return; } }
-    box.innerHTML = rows.length ? rows.map(r=>`<div class="rrow"><div><b>${r.seat_id}</b> · ${r.reason}<small>${new Date(r.at).toLocaleString('ko-KR')}</small></div><button data-id="${r.id}">해결됨</button></div>`).join('') : '<p class="amuted">미해결 신고가 없습니다.</p>';
+    box.innerHTML = rows.length ? rows.map(r=>`<div class="rrow"><div><b>${r.seat_id}</b> · ${r.reason}${r.detail?`<small style="color:var(--ink2)">${r.detail}</small>`:''}<small>${new Date(r.at).toLocaleString('ko-KR')}</small></div><button data-id="${r.id}">해결됨</button></div>`).join('') : '<p class="amuted">미해결 신고가 없습니다.</p>';
     document.querySelectorAll('#areports button[data-id]').forEach(b=>b.onclick=async()=>{
       if(DEMO){ toast('해결 처리 (데모)'); const row=b.closest('.rrow'); if(row) row.remove(); return; }
       try{ await rpc('admin_resolve',{p_pin:adminPin,p_id:b.dataset.id}); loadAReports(); }catch(e){} });

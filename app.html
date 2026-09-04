@@ -55,13 +55,13 @@
     .leave{height:42px;margin-top:8px}
   }
   .ct{font-size:16px;font-weight:700;flex:0 0 auto}
-  /* 학생증 */
-  .idcard{justify-content:center}
+  /* 학생증 — 콘텐츠 크기로 축소(안 커지게), 나머지 공간은 이용중·잔여 카드가 차지 */
+  .idcard{justify-content:center;flex:0 0 auto;padding-top:13px;padding-bottom:13px}
   .idtop{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
   .nm{font-size:20px;font-weight:700}
   .sno{font-size:14px;font-weight:600;color:var(--tint);margin-top:7px;font-variant-numeric:tabular-nums}
   .meta{font-size:12.5px;color:var(--ink3);margin-top:4px;line-height:1.5}
-  .qr{width:86px;height:86px;flex:0 0 auto;background:#fff;border:1px solid var(--sep);border-radius:11px;padding:5px}
+  .qr{width:72px;height:72px;flex:0 0 auto;background:#fff;border:1px solid var(--sep);border-radius:11px;padding:5px}
   .qr img,.qbig img{width:100%;height:100%;image-rendering:pixelated;display:block}
   .idt{margin-top:13px;padding-top:12px;border-top:1px solid var(--sep);text-align:center;font-size:12.5px;color:var(--ink3)}
   /* 이용 중 좌석 */
@@ -96,15 +96,18 @@
   .mleg{display:flex;gap:18px;justify-content:center;font-size:12.5px;color:var(--ink2)}
   .mleg i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
   .mleg .f{background:var(--tint)} .mleg .o{background:#d9820f} .mleg .b{background:#a1a1a8}
-  .mmap{display:flex;gap:8px;align-items:stretch;justify-content:center;background:var(--card);border-radius:18px;padding:14px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
-  .mzone{display:flex;flex-direction:column;justify-content:space-between;gap:5px}
-  .ma{display:grid;grid-template-columns:repeat(2,28px);gap:5px;align-content:space-between}
-  .mmid{width:188px;display:flex;flex-direction:column}
-  .mlec{flex:1;min-height:64px;background:var(--sub);border-radius:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink3);font-size:13px;font-weight:700}
-  .mlec span{font-size:9.5px;font-weight:500;margin-top:2px}
-  .mbrow{display:flex;gap:4px;margin-top:8px;justify-content:space-between}
-  .mtable{height:8px;background:#e6e6eb;border-radius:4px;margin-top:6px}
-  .mseat{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-variant-numeric:tabular-nums}
+  /* 좌석도: 화면 너비에 꽉 차게 유동 크기(A 2열 : 중앙 6열 : C 1열 = 2:6:1) */
+  .mmap{flex:1 1 auto;display:flex;gap:2.5%;align-items:stretch;background:var(--card);border-radius:20px;padding:18px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .mzone{display:flex;flex-direction:column;justify-content:space-between;gap:6px}
+  .ma{flex:2;display:grid;grid-template-columns:1fr 1fr;gap:6px;align-content:space-between}
+  .mc{flex:1}
+  .mmid{flex:6;display:flex;flex-direction:column}
+  .mlec{flex:1;min-height:74px;background:var(--sub);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink3);font-size:15px;font-weight:700}
+  .mlec span{font-size:11px;font-weight:500;margin-top:3px}
+  .mbrow{display:flex;gap:5px;margin-top:9px}
+  .mbrow .mseat{flex:1}
+  .mtable{height:9px;background:#e6e6eb;border-radius:5px;margin-top:7px}
+  .mseat{aspect-ratio:1;width:100%;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
   .mseat.free{background:var(--tint-bg);color:var(--tint-d)}
   .mseat.occ{background:#fbefda;color:#b06a10}
   .mseat.blk{background:#ececee;color:#9a9ea4}
@@ -152,6 +155,11 @@
   .reasons{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
   .reasons button{padding:16px;border:1.5px solid var(--sep);background:#fff;border-radius:13px;font-size:16px;font-weight:700;color:var(--ink);font-family:inherit}
   .reasons button:active{background:var(--sub)}
+  .reasons button.on{border-color:var(--tint);background:var(--tint-bg);color:var(--tint-d)}
+  .confirm.rpt{width:min(340px,88vw)}
+  .rptdetail{width:100%;border:1px solid var(--field);border-radius:12px;padding:11px 13px;font-size:15px;font-family:inherit;color:var(--ink);resize:none;margin-bottom:14px;line-height:1.5}
+  .rptdetail:focus{outline:none;border-color:var(--tint)}
+  .repdetail{font-size:13px;color:var(--ink2);margin-top:3px;line-height:1.45;word-break:keep-all}
   .pwin{width:100%;padding:15px 16px;border:1px solid var(--field);border-radius:13px;font-size:16px;margin-bottom:6px}
   .pwin:focus{outline:none;border-color:var(--tint)}
   .pwmsg{font-size:13px;color:var(--red);min-height:18px;margin-bottom:8px;text-align:left}
@@ -561,14 +569,20 @@
     render(); timers.push(setInterval(render,8000));
   }
   function openReport(id){
-    showOv(`<div class="confirm"><h3>${id}번 좌석 신고</h3><p>사유를 선택하세요</p>
-      <div class="reasons">${REASONS.map(r=>`<button data-r="${r}">${r}</button>`).join('')}</div>
-      <button class="linkbtn" id="rc">취소</button></div>`);
-    ov.querySelectorAll('.reasons button').forEach(b=>b.onclick=()=>submitReport(id,b.dataset.r));
+    let picked=null;
+    showOv(`<div class="confirm rpt"><h3>${id}번 좌석 신고</h3><p>사유를 선택하세요</p>
+      <div class="reasons">${REASONS.map(r=>`<button data-r="${esc(r)}">${esc(r)}</button>`).join('')}</div>
+      <textarea class="rptdetail" id="rptdetail" placeholder="세부 사유 (선택 입력)" rows="2"></textarea>
+      <div class="cb"><button class="cc" id="rc">취소</button><button class="ok" id="rsub" disabled>신고</button></div></div>`);
+    ov.querySelectorAll('.reasons button').forEach(b=>b.onclick=()=>{ picked=b.dataset.r;
+      ov.querySelectorAll('.reasons button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); $("#rsub").disabled=false; });
+    $("#rsub").onclick=()=>{ if(picked) submitReport(id, picked, $("#rptdetail").value.trim()); };
     $("#rc").onclick=hideOv;
   }
-  async function submitReport(seat,reason){
-    try{ const res=await rpc('report_seat',{p_seat:seat,p_reason:reason});
+  async function submitReport(seat,reason,detail){
+    try{ let res;
+      try{ res=await rpc('report_seat',{p_seat:seat,p_reason:reason,p_detail:detail||null}); }
+      catch(e){ res=await rpc('report_seat',{p_seat:seat,p_reason:reason}); }   // 구버전(detail 미지원) 폴백
       if(res&&res.ok){ hideOv(); toast('신고 접수됐어요. 감사합니다'); } else toast('신고 실패');
     }catch(e){ toast('오류가 발생했어요'); }
   }
@@ -704,6 +718,7 @@
       <div class="repitem ${r.resolved_at?'done':''}">
         <div class="repmain"><div class="repseat">${r.seat_id||'—'}</div>
           <div class="repinfo"><div class="reprsn">${esc(r.reason||'기타')}</div>
+            ${r.detail?`<div class="repdetail">${esc(r.detail)}</div>`:''}
             <div class="repmeta">${new Date(r.at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}${r.resolved_at?' · 처리완료':''}</div></div></div>
         ${r.resolved_at?'<span class="repdone">✓</span>':`<button class="repbtn" data-id="${r.id}">처리완료</button>`}
       </div>`).join('') : '<p class="empty" style="padding:18px">접수된 민원이 없어요</p>');
@@ -738,7 +753,7 @@
     $("#rpq").addEventListener('keydown',e=>{ if(e.key==='Enter') doSearch(); });
     setTimeout(()=>{ const i=$("#rpq"); if(i) i.focus(); }, 120);
   }
-  function genTempPw(){ return String(Math.floor(100000+Math.random()*900000)); }   // 6자리 임시
+  function genTempPw(){ return '000000'; }   // 임시 비밀번호: 0 6자리(회원에게 전달 후 로그인→변경)
   function askReset(sno, name){
     confirmSheet('비밀번호 초기화', `${esc(name||sno)}님(${esc(sno)})의 비밀번호를 임시로 초기화할까요?<br><b>이용 기록(열품타)은 그대로 유지</b>됩니다.`, '초기화', false, async()=>{
       hideOv(); const temp=genTempPw();
@@ -783,13 +798,11 @@
     }catch(_){}
     pushOn=false; return true;
   }
-  async function initPush(){   // 최초 로그인 시 1회: 허용돼 있으면 조용히 구독 유지, 아직 미결정이면 안내 팝업
+  async function initPush(){   // 앱 켤 때마다: 허용돼 있으면 조용히 구독, 미설정이면 안내 팝업(최대한 켜도록)
     if(pushInit || DEMO || !pushSupported()) return; pushInit=true;
-    if(Notification.permission==='granted'){ enablePush(); return; }
-    if(Notification.permission!=='default') return;   // 거부 상태면 팝업 안 띄움(메뉴 토글로만)
-    let asked=false; try{ asked = localStorage.getItem('gn_pushasked')==='1'; }catch(_){}
-    if(asked) return;
-    try{ localStorage.setItem('gn_pushasked','1'); }catch(_){}
+    if(Notification.permission==='granted'){ enablePush(); return; }   // 이미 허용 → 조용히 구독 유지
+    if(Notification.permission!=='default') return;   // 거부(차단) 상태면 재요청 불가 → 팝업 생략
+    // 미설정('default') → 앱 켤 때마다 안내(1회/세션)
     showOv(`<div class="confirm pushask"><div class="pushemoji">🔔</div><h3>퇴실 알림 받기</h3>
       <p>이용시간 <b>30분 전</b>에 알려드려요.<br>알림 권한을 켜주세요.</p>
       <div class="cb"><button class="cc" id="pushlater">나중에</button><button class="ok" id="pushnow">알림 켜기</button></div></div>`);

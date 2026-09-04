@@ -1,7 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <!-- 마스커블 아이콘: 전체 배경 채움 + 핵심은 중앙 80% 안전영역 안에 -->
   <rect width="512" height="512" fill="#1b5e43"/>
-  <circle cx="256" cy="244" r="156" fill="#2e9e6b" opacity="0.22"/>
   <!-- 줄기 -->
   <path d="M256 430 C256 372 242 322 268 252" stroke="#e0f7ec" stroke-width="30" stroke-linecap="round" fill="none"/>
   <!-- 왼쪽 잎 -->
