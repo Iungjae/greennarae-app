@@ -511,8 +511,8 @@
   async function offerCheckout(uid){
     if(DEMO){ myRes={seat_id:'B5',end_at:new Date(Date.now()+22*60000).toISOString()}; showMyReservation(); return true; }
     try{
-      const mine=await rest(`reservations?select=seat_id,end_at&user_id=eq.${uid}&status=eq.active`);
-      if(mine && mine.length){ myRes=mine[0]; showMyReservation(); return true; }
+      const res=await rpc('my_reservation',{p_token:scanned.token});   // anon은 reservations 직접 못 읽음 → 토큰 RPC
+      if(res && res.has){ myRes={seat_id:res.seat_id, end_at:res.end_at}; showMyReservation(); return true; }
     }catch(e){}
     return false;
   }

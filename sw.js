@@ -41,7 +41,7 @@ self.addEventListener('push', e => {
   catch (_) { if (e.data) d.body = e.data.text(); }
   e.waitUntil(self.registration.showNotification(d.title, {
     body: d.body, icon: 'icon-192.png', badge: 'icon-192.png', lang: 'ko',
-    silent: true, vibrate: [300, 120, 300]   // 소리 완전 차단(폰이 벨소리여도 무음). 진동은 best-effort
+    requireInteraction: true, vibrate: [300, 120, 300]   // 일단 확실히 뜨게(사용자가 닫을 때까지 유지)
   }));
 });
 self.addEventListener('notificationclick', e => {

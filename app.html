@@ -792,7 +792,9 @@
       const r=await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions`,{method:'POST',
         headers:{...authH(),Prefer:'resolution=merge-duplicates'},
         body:JSON.stringify({user_id:session.user.id, endpoint:sub.endpoint, sub})});
-      pushOn = r.ok; return pushOn;
+      pushOn = r.ok;
+      if(pushOn){ try{ reg.showNotification('그린나래 알림 켜짐 🔔',{body:'퇴실 30분 전에 여기로 알려드릴게요.',icon:'icon-192.png',badge:'icon-192.png',vibrate:[200,100,200]}); }catch(_){} }  // 즉시 확인용
+      return pushOn;
     }catch(_){ return false; }
   }
   async function disablePush(){   // 구독 해제 + 저장 삭제
