@@ -256,7 +256,7 @@
       <div class="mark">
         <svg class="big" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#1b5e43"/><path d="M32 53C32 45 30.5 39 33.5 31.5" stroke="#e0f7ec" stroke-width="3.8" stroke-linecap="round" fill="none"/><ellipse cx="22" cy="31" rx="11.5" ry="7.2" transform="rotate(-28 22 31)" fill="#5cc793"/><ellipse cx="42" cy="25.5" rx="13.5" ry="8.6" transform="rotate(32 42 25.5)" fill="#a9e5c8"/></svg>
         <h1>그린나래</h1>
-        <p>편안한 독서 공간, 그린나래에 오신 것을 환영합니다 🌿</p>
+        <p>편안한 공간, 그린나래에 오신 것을 환영합니다 🌿</p>
       </div>
       <div class="stats">
         <div class="stat busy"><div class="lab">현재 이용중</div><div class="v"><b class="tnum" id="nOccM">0</b><span>명</span></div></div>
@@ -322,9 +322,9 @@
         <div class="pgrid">
           <div class="pc"><i>1</i><div><b>그린나래는 카페입니다</b><span>큰 소음은 제한되나, 대화는 가능한 공간입니다.</span></div></div>
           <div class="pc"><i>2</i><div><b>음식물 섭취 제한</b><span>음료를 제외한 음식물 섭취를 제한합니다.</span></div></div>
-          <div class="pc"><i>3</i><div><b>이용시간 만료 시 자리 반환</b><span>이용시간이 만료되면 별도 통보 없이 자동 반환됩니다.</span></div></div>
-          <div class="pc"><i>4</i><div><b>퇴실 후 자리 정리</b><span>퇴실 시 이용한 자리는 깨끗하게 청소 부탁드립니다.</span></div></div>
-          <div class="pc"><i>5</i><div><b>미사용 좌석 비우기</b><span>미사용 좌석에 남아있는 짐은 별도 통보 없이 처리됩니다.</span></div></div>
+          <div class="pc"><i>3</i><div><b>이용시간 만료 시 자리 반환</b><span>이용시간이 만료되면 별도 통보 없이<br>자동 반환됩니다.</span></div></div>
+          <div class="pc"><i>4</i><div><b>퇴실 후 자리 정리</b><span>퇴실 시 이용한 자리는 깨끗하게<br>청소 부탁드립니다.</span></div></div>
+          <div class="pc"><i>5</i><div><b>미사용 좌석 비우기</b><span>미사용 좌석에 남아있는 짐은<br>별도 통보 없이 처리됩니다.</span></div></div>
           <div class="pc"><i>6</i><div><b>이용 인원 지키기</b><span>1인석 소파는 2인이 앉을 수 없습니다.</span></div></div>
         </div>
       </section>
@@ -412,7 +412,7 @@
 
   // ── 화면 전환 ──
   function show(id){ ['scMain','scScan','scSeats'].forEach(s=>$("#"+s).hidden=(s!==id)); screen=id==='scMain'?'main':id==='scScan'?'scan':'seats'; }
-  function goMain(){ closeModal(); scanned=null; picking=null; mode='view'; clearTimeout(idleTimer); clearInterval(doneCd); show('scMain'); renderSeats(); }
+  function goMain(){ closeModal(); scanned=null; myRes=null; picking=null; mode='view'; clearTimeout(idleTimer); clearInterval(doneCd); show('scMain'); renderSeats(); }
   function goScan(){ picking=null; show('scScan'); bumpIdle(45000); }
   function goSeats(m){ mode=m; scanned = (m==='pick'||m==='report')?scanned:null; picking=null;   // 신고 모드에서도 스캔 정보 유지 → 취소 시 예약(pick) 복원
     const g=$("#greet");
@@ -434,6 +434,10 @@
     bumpIdle(60000);
     const s=statusMap[id]||{};
     if(mode==='report'){ openReport(id); return; }   // 모든 좌석 신고 가능(예약 없이 짐만 있는 경우 포함)
+    if(scanned && myRes){   // 이미 이용 중인 회원: 본인 좌석 → 퇴실/연장, 다른 좌석 → 안내
+      if(id===myRes.seat_id){ showMyReservation(); return; }
+      toast(`이미 ${myRes.seat_id}번 좌석 이용 중이에요. 본인 좌석을 눌러주세요`,true); return;
+    }
     if(mode!=='pick' || !scanned){ toast("예약하려면 '예약하기'를 눌러 QR을 스캔하세요",true); return; }
     if(s.is_blocked){ toast('점검 중인 좌석입니다',true); return; }
     if(s.occupied){ toast('이미 이용 중인 좌석입니다',true); return; }
@@ -470,7 +474,7 @@
     const et=endAt?new Date(endAt):null;
     const hm=et?String(et.getHours()).padStart(2,'0')+':'+String(et.getMinutes()).padStart(2,'0'):'';
     const title=kind==='reserve'?'예약 완료':kind==='renew'?'연장 완료':'퇴실 완료';
-    const msg=kind==='checkout'?'이용해 주셔서 감사합니다':'편안한 독서 되세요';
+    const msg=kind==='checkout'?'이용해 주셔서 감사합니다':'편안한 이용 되세요';
     $("#modal").innerHTML=`<div class="em">🌿</div><h2>${title}</h2>
       <p>${seat?seat+'번 좌석':''}${hm?' · 종료 '+hm:''}<br>${msg}</p>
       <div class="btns"><button class="go" id="mok">확인 <span class="cd" id="cd">(5)</span></button></div>`;
@@ -515,15 +519,15 @@
   function showMyReservation(){
     const r=myRes; const remMin=Math.max(0,Math.round((new Date(r.end_at)-Date.now())/60000));
     const et=new Date(r.end_at), hm=String(et.getHours()).padStart(2,'0')+':'+String(et.getMinutes()).padStart(2,'0');
-    show('scSeats'); $("#greet").className='greet view'; $("#greet").textContent='좌석 이용현황'; renderSeats();
+    show('scSeats'); $("#greet").className='greet pick'; $("#greet").innerHTML=`🪑 이용 중인 <b>${r.seat_id}번</b> 좌석을 눌러 퇴실·연장할 수 있어요`; renderSeats();
     $("#modal").innerHTML=`<h2>${(scanned&&scanned.name)||'회원'}님</h2>
       <p style="margin-bottom:26px">현재 <b style="color:var(--tint-d)">${r.seat_id}번 좌석</b> 이용 중이에요</p>
       <div class="myinfo"><div class="mi"><div class="k">남은 시간</div><div class="v mono">${fmtRem(remMin)}</div></div>
         <div class="mi"><div class="k">종료 시각</div><div class="v mono">${hm}</div></div></div>
       <div class="btns"><button class="cc" id="mext">연장하기</button><button class="go out" id="mout">퇴실하기</button></div>
-      <button class="linkbtn" id="mkeep">계속 이용 · 닫기</button>`;
+      <button class="linkbtn" id="mkeep">닫기</button>`;
     $("#ov").hidden=false;
-    $("#mkeep").onclick=goMain; $("#mext").onclick=openRenew; $("#mout").onclick=doCheckout;
+    $("#mkeep").onclick=closeModal; $("#mext").onclick=openRenew; $("#mout").onclick=doCheckout;
   }
   function openRenew(){
     chosenMin=0;

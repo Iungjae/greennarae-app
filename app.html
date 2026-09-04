@@ -43,17 +43,6 @@
   main{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;padding:1px 16px calc(11px + env(safe-area-inset-bottom))}
   .card{flex:1 1 auto;background:var(--card);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;
     box-shadow:0 1px 2px rgba(0,0,0,.03)}
-  /* 아주 낮은 화면(구형 아이폰 SE 320×568 등) — 3블록이 안 잘리도록 압축 */
-  @media (max-height:620px){
-    main{gap:7px;padding-bottom:calc(8px + env(safe-area-inset-bottom))}
-    .card{padding:11px 14px}
-    .qr{width:72px;height:72px}
-    .nm{font-size:18px}
-    .idt{margin-top:9px;padding-top:9px}
-    .rbody{margin-top:7px}
-    .stt{font-size:21px}
-    .leave{height:42px;margin-top:8px}
-  }
   .ct{font-size:16px;font-weight:700;flex:0 0 auto}
   /* 학생증 — 콘텐츠 크기로 축소(안 커지게), 나머지 공간은 이용중·잔여 카드가 차지 */
   .idcard{justify-content:center;flex:0 0 auto;padding-top:13px;padding-bottom:13px}
@@ -84,6 +73,21 @@
   .zsum{flex:1;display:flex;flex-direction:column;justify-content:center;gap:22px}
   .zline .t{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;color:var(--ink);font-weight:500;margin-bottom:6px}
   .zline .t b{color:var(--tint);font-weight:700} .zline .t .cap{color:var(--ink3);font-size:12px;font-weight:400}
+  /* 낮은 화면(구형 SE 320×568, iOS Safari 주소창으로 높이 줄 때) — 블록 크기는 유지, 안쪽 요소만 압축 (base 규칙 뒤에 둬야 적용됨) */
+  @media (max-height:640px){
+    main{gap:5px;padding-bottom:calc(6px + env(safe-area-inset-bottom))}
+    .card{padding:9px 14px}
+    .idcard{padding-top:9px;padding-bottom:9px}
+    .qr{width:58px;height:58px}
+    .nm{font-size:17px} .sno{margin-top:3px} .meta{margin-top:2px;line-height:1.35}
+    .idt{display:none}
+    .rbody{margin-top:5px} .seatmid{gap:5px}
+    .stt{font-size:19px}
+    .rowb .lb,.rowb .vv{font-size:13px} .bar{margin:5px 0 !important} .tt{font-size:11px}
+    .leave{height:36px;margin-top:6px;font-size:14.5px}
+    .zsum{gap:10px}
+    .noseat .a{font-size:14px} .noseat .b{font-size:12px}
+  }
   /* 잔여 좌석(상세) */
   #zlist{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 16px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px}
   .zc{background:var(--card);border-radius:14px;padding:15px 17px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
@@ -128,7 +132,7 @@
   .hsec{flex:0 0 auto;background:var(--card);border-radius:18px;padding:15px 16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
   .hsec.grow{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}
   .hsect{font-size:13.5px;font-weight:800;margin-bottom:12px;flex:0 0 auto;color:var(--ink2)}
-  .hlist{flex:1;min-height:0;overflow:hidden}
+  .hlist{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .hbars{display:flex;align-items:flex-end;gap:5px;height:90px}
   .hbar{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;height:100%}
   .hbw{flex:1;width:100%;display:flex;align-items:flex-end;background:var(--sub);border-radius:6px;overflow:hidden}
@@ -414,7 +418,7 @@
       $("#bout").onclick=doCheckout;
     } else {
       box.innerHTML=`<div class="noseat"><div class="a">이용 중인 좌석이 없습니다</div>
-        <div class="b">독서실 키오스크에서<br>QR을 스캔해 예약하세요</div></div>`;
+        <div class="b">그린나래 키오스크에서<br>QR을 스캔해 예약하세요</div></div>`;
     }
   }
 
@@ -455,7 +459,7 @@
           </div>
           <div class="mzone mc">${MAP_C.map(tile).join('')}</div>
         </div>
-        <p class="zhint2">빈자리를 확인하고 <b>독서실 키오스크에서 QR을 스캔</b>해 예약하세요</p>`;
+        <p class="zhint2">빈자리를 확인하고 <b>키오스크에서 QR을 스캔</b>해 예약하세요</p>`;
     };
     render(); timers.push(setInterval(render,8000));
   }
@@ -530,7 +534,7 @@
         : monthMs>=20*3600000 ? `이번 달 벌써 ${Math.round(monthMs/3600000)}시간! 멋져요`
         : '꾸준함이 실력이 됩니다 🌿';
       const bars=days.map(d=>`<div class="hbar"><div class="hbw"><i class="${d.today?'now':''}" style="height:${d.ms>0?Math.max(10,Math.round(d.ms/maxMs*100)):0}%"></i></div><span${d.today?' class="td"':''}>${d.lab}</span></div>`).join('');
-      const recent = rows.slice(0,6).map(r=>{ const sd=new Date(r.start_at), md=(sd.getMonth()+1)+'/'+sd.getDate();
+      const recent = rows.slice(0,60).map(r=>{ const sd=new Date(r.start_at), md=(sd.getMonth()+1)+'/'+sd.getDate();
         const st=r.status==='active'?'이용중':r.status==='ended'?'퇴실':r.status==='expired'?'만료':'취소';
         return `<div class="hrow"><div class="hseat"><b>${r.seat_id}</b><span class="hgray">${md}</span></div><div class="hdur">${fmtDur(dur(r))}<i class="dot">·</i><span class="hst ${r.status}">${st}</span></div></div>`; }).join('') || '<p class="empty" style="padding:18px">아직 이용 기록이 없어요</p>';
       const b=$("#histbody"); if(!b) return;
@@ -603,7 +607,7 @@
   // ── 문의하기 / 비밀번호 변경 ──
   function openContact(){
     showOv(`<div class="confirm" style="text-align:center"><div style="font-size:50px;margin-bottom:6px">🌿</div>
-      <h3>문의하기</h3><p style="margin-bottom:18px">그린나래 · 한신대 생활관 사생회</p>
+      <h3>문의하기</h3><p style="margin-bottom:18px">한신대학교 생활관 사무실</p>
       <div class="contact"><span>전화 문의</span><b class="mono">031-379-0174</b></div>
       <button class="linkbtn" id="cc">닫기</button></div>`);
     $("#cc").onclick=hideOv;
