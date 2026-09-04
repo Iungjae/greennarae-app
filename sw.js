@@ -1,6 +1,6 @@
 // 그린나래 좌석 — 서비스워커 (PWA 설치/오프라인 셸 + 웹푸시 수신)
 const CACHE = 'gn-v1';
-const SHELL = ['./', 'app.html', 'manifest.webmanifest', 'icon.svg', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
+const SHELL = ['./', 'app.html', 'manifest.webmanifest', 'icon.svg', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'badge.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).catch(() => {}));
@@ -40,8 +40,8 @@ self.addEventListener('push', e => {
   try { d = Object.assign(d, e.data.json()); }
   catch (_) { if (e.data) d.body = e.data.text(); }
   e.waitUntil(self.registration.showNotification(d.title, {
-    body: d.body, icon: 'icon-192.png', badge: 'icon-192.png', lang: 'ko',
-    requireInteraction: true, vibrate: [300, 120, 300]   // 일단 확실히 뜨게(사용자가 닫을 때까지 유지)
+    body: d.body, icon: 'icon-192.png', badge: 'badge.png', lang: 'ko',
+    requireInteraction: true, vibrate: [300, 120, 300]   // 상단바=단색 실루엣(badge), 본문=컬러 로고(icon)
   }));
 });
 self.addEventListener('notificationclick', e => {

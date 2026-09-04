@@ -793,7 +793,7 @@
         headers:{...authH(),Prefer:'resolution=merge-duplicates'},
         body:JSON.stringify({user_id:session.user.id, endpoint:sub.endpoint, sub})});
       pushOn = r.ok;
-      if(pushOn){ try{ reg.showNotification('그린나래 알림 켜짐 🔔',{body:'퇴실 30분 전에 여기로 알려드릴게요.',icon:'icon-192.png',badge:'icon-192.png',vibrate:[200,100,200]}); }catch(_){} }  // 즉시 확인용
+      if(pushOn){ try{ reg.showNotification('그린나래 알림 켜짐 🔔',{body:'퇴실 30분 전에 여기로 알려드릴게요.',icon:'icon-192.png',badge:'badge.png',vibrate:[200,100,200]}); }catch(_){} }  // 즉시 확인용
       return pushOn;
     }catch(_){ return false; }
   }
