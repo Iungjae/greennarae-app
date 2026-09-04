@@ -81,7 +81,7 @@
   /* 잔여 좌석(요약) */
   .hrow{display:flex;align-items:center;justify-content:space-between;flex:0 0 auto}
   .hrow .more{background:none;border:0;color:var(--tint);font-weight:500;font-size:14px;padding:2px 0}
-  .zsum{flex:1;display:flex;flex-direction:column;justify-content:space-between;padding-top:11px}
+  .zsum{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:22px;padding-top:11px}
   .zline .t{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;color:var(--ink);font-weight:500;margin-bottom:6px}
   .zline .t b{color:var(--tint);font-weight:700} .zline .t .cap{color:var(--ink3);font-size:12px;font-weight:400}
   /* 잔여 좌석(상세) */
@@ -97,12 +97,12 @@
   .mleg i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
   .mleg .f{background:var(--tint)} .mleg .o{background:#d9820f} .mleg .b{background:#a1a1a8}
   /* 좌석도: 화면 너비에 꽉 차게 유동 크기(A 2열 : 중앙 6열 : C 1열 = 2:6:1) */
-  .mmap{flex:1 1 auto;display:flex;gap:2.5%;align-items:stretch;background:var(--card);border-radius:20px;padding:18px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
-  .mzone{display:flex;flex-direction:column;justify-content:space-between;gap:6px}
-  .ma{flex:2;display:grid;grid-template-columns:1fr 1fr;gap:6px;align-content:space-between}
+  .mmap{display:flex;gap:2.5%;align-items:stretch;background:var(--card);border-radius:20px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .mzone{display:flex;flex-direction:column;justify-content:center;gap:14px}
+  .ma{flex:2;display:grid;grid-template-columns:1fr 1fr;gap:14px 6px;align-content:center}
   .mc{flex:1}
-  .mmid{flex:6;display:flex;flex-direction:column}
-  .mlec{flex:1;min-height:74px;background:var(--sub);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink3);font-size:15px;font-weight:700}
+  .mmid{flex:6;display:flex;flex-direction:column;justify-content:center}
+  .mlec{flex:1;min-height:112px;background:var(--sub);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink3);font-size:15px;font-weight:700}
   .mlec span{font-size:11px;font-weight:500;margin-top:3px}
   .mbrow{display:flex;gap:5px;margin-top:9px}
   .mbrow .mseat{flex:1}

@@ -40,7 +40,8 @@ self.addEventListener('push', e => {
   try { d = Object.assign(d, e.data.json()); }
   catch (_) { if (e.data) d.body = e.data.text(); }
   e.waitUntil(self.registration.showNotification(d.title, {
-    body: d.body, icon: 'icon-192.png', badge: 'icon-192.png', lang: 'ko'
+    body: d.body, icon: 'icon-192.png', badge: 'icon-192.png', lang: 'ko',
+    silent: true, vibrate: [300, 120, 300]   // 소리 완전 차단(폰이 벨소리여도 무음). 진동은 best-effort
   }));
 });
 self.addEventListener('notificationclick', e => {
