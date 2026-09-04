@@ -45,14 +45,13 @@
     box-shadow:0 1px 2px rgba(0,0,0,.03)}
   .ct{font-size:16px;font-weight:700;flex:0 0 auto}
   /* 학생증 — 콘텐츠 크기로 축소(안 커지게), 나머지 공간은 이용중·잔여 카드가 차지 */
-  .idcard{justify-content:center;flex:0 0 auto;padding-top:13px;padding-bottom:13px}
+  .idcard{justify-content:center;flex:0 0 auto;padding-top:34px;padding-bottom:34px}
   .idtop{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
   .nm{font-size:20px;font-weight:700}
   .sno{font-size:14px;font-weight:600;color:var(--tint);margin-top:7px;font-variant-numeric:tabular-nums}
   .meta{font-size:12.5px;color:var(--ink3);margin-top:4px;line-height:1.5}
   .qr{width:72px;height:72px;flex:0 0 auto;background:#fff;border:1px solid var(--sep);border-radius:11px;padding:5px}
   .qr img,.qbig img{width:100%;height:100%;image-rendering:pixelated;display:block}
-  .idt{margin-top:13px;padding-top:12px;border-top:1px solid var(--sep);text-align:center;font-size:12.5px;color:var(--ink3)}
   /* 이용 중 좌석 */
   .rbody{flex:1;min-height:0;display:flex;flex-direction:column;margin-top:11px}
   .seatmid{flex:1;display:flex;flex-direction:column;justify-content:center;gap:10px}
@@ -80,7 +79,6 @@
     .idcard{padding-top:9px;padding-bottom:9px}
     .qr{width:58px;height:58px}
     .nm{font-size:17px} .sno{margin-top:3px} .meta{margin-top:2px;line-height:1.35}
-    .idt{display:none}
     .rbody{margin-top:5px} .seatmid{gap:5px}
     .stt{font-size:19px}
     .rowb .lb,.rowb .vv{font-size:13px} .bar{margin:5px 0 !important} .tt{font-size:11px}
@@ -382,7 +380,7 @@
           <div class="idtop"><div class="who"><div class="nm" id="pnm">—</div><div class="sno" id="psno"></div>
             <div class="meta">한신대학교 생활관<br>그린나래</div></div>
             <button class="qr" id="qr" aria-label="QR 크게 보기"></button></div>
-          <div class="idt mono" id="idt"></div>${TEST?'<div id="toktext" style="margin-top:10px;padding:11px 12px;border:1px dashed #1f9254;border-radius:11px;background:#f2f7f4;color:#19773f;font-size:11px;font-family:var(--mono);word-break:break-all;-webkit-user-select:all;user-select:all;text-align:center">🔧 토큰 로딩…</div>':''}</div>
+          ${TEST?'<div id="toktext" style="margin-top:10px;padding:11px 12px;border:1px dashed #1f9254;border-radius:11px;background:#f2f7f4;color:#19773f;font-size:11px;font-family:var(--mono);word-break:break-all;-webkit-user-select:all;user-select:all;text-align:center">🔧 토큰 로딩…</div>':''}</div>
         <div class="card seatcard"><div class="ct">이용 중인 좌석</div><div class="rbody" id="resv"></div></div>
         <div class="card">
           <div class="hrow"><span class="ct">잔여 좌석</span><button class="more" id="zmore">전체보기 ›</button></div>
@@ -394,7 +392,6 @@
     if($("#pnm")){ $("#pnm").textContent=(p&&p.name)||'회원'; $("#psno").textContent=(p&&p.student_no)||''; }
     IS_ADMIN=!!(p&&p.is_admin); if(IS_ADMIN){ startAdminWatch(); updateMenuBadge(); }
     $("#qr").onclick=openQRBig; startQR();
-    const tick=()=>{ const e=$("#idt"); if(e) e.textContent=fmtNow(); }; tick(); timers.push(setInterval(tick,1000));
     $("#menuBtn").onclick=openMenu; $("#zmore").onclick=screenZones;
     loadResv(); timers.push(setInterval(loadResv,10000));
     loadZoneSummary(); timers.push(setInterval(loadZoneSummary,15000));
