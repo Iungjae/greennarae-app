@@ -236,6 +236,14 @@
   .sheet .sh{text-align:center;color:var(--ink3);font-size:13px;font-weight:600;padding:12px 0 8px}
   .sheet .mi{display:block;width:100%;background:none;border:0;padding:15px 14px;font-size:16px;font-weight:500;color:var(--ink);text-align:left;border-radius:11px}
   .sheet .mi:active{background:var(--sub)} .sheet .mi.dan{color:var(--red)}
+  /* 메뉴 토글 스위치(퇴실 알림) */
+  .sheet .mi.mtog{display:flex;align-items:center;justify-content:space-between}
+  .tgl{position:relative;width:44px;height:26px;border-radius:999px;background:#d1d1d6;transition:background .15s;flex:0 0 auto}
+  .tgl::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:left .15s}
+  .tgl.on{background:var(--tint)} .tgl.on::after{left:21px}
+  /* 퇴실 알림 안내 팝업 */
+  .confirm.pushask .pushemoji{font-size:46px;line-height:1;margin-bottom:8px}
+  .confirm.pushask p{margin-bottom:20px}
   .confirm{position:relative;margin:auto;background:#fff;border-radius:20px;padding:22px;width:min(300px,82vw);text-align:center}
   .confirm h3{font-size:17px;font-weight:700;margin:0 0 7px} .confirm p{color:var(--ink2);font-size:13.5px;margin:0 0 18px;line-height:1.5}
   .confirm .cb{display:flex;gap:9px} .confirm .cb button{flex:1;height:46px;border:0;border-radius:12px;font-weight:600;font-size:15px}
@@ -378,6 +386,7 @@
     $("#menuBtn").onclick=openMenu; $("#zmore").onclick=screenZones;
     loadResv(); timers.push(setInterval(loadResv,10000));
     loadZoneSummary(); timers.push(setInterval(loadZoneSummary,15000));
+    setTimeout(initPush, 600);   // 최초 로그인 시 퇴실 알림 권한 안내
   }
 
   async function loadResv(){
@@ -395,7 +404,6 @@
         </div>
         <button class="leave" id="bout">퇴실하기</button>`;
       $("#bout").onclick=doCheckout;
-      ensurePush();   // 이용 중이면 퇴실 30분 전 알림 자동 구독(토글 없음)
     } else {
       box.innerHTML=`<div class="noseat"><div class="a">이용 중인 좌석이 없습니다</div>
         <div class="b">독서실 키오스크에서<br>QR을 스캔해 예약하세요</div></div>`;
@@ -457,6 +465,7 @@
       <button class="mi" id="mReport">좌석 신고</button>
       <button class="mi" id="mNotice">공지사항</button>
       <button class="mi" id="mContact">문의하기</button>
+      <button class="mi mtog" id="mPush">퇴실 30분 전 알림<span class="tgl" id="pushtgl"></span></button>
       <button class="mi" id="mPw">비밀번호 변경</button>
       <button class="mi dan" id="mOut">로그아웃</button></div>`);
     if($("#mInstall")) $("#mInstall").onclick=()=>{ hideOv(); doInstall(); };
@@ -469,6 +478,14 @@
     $("#mReport").onclick=()=>{ hideOv(); screenReport(); };
     $("#mNotice").onclick=()=>{ hideOv(); screenNotices(); };
     $("#mContact").onclick=openContact;
+    $("#mPush").onclick=async()=>{
+      if(!pushSupported()){ toast('이 기기는 알림을 지원하지 않아요'); return; }
+      if(Notification.permission==='denied'){ toast('브라우저 설정에서 알림을 허용해 주세요'); return; }
+      if(pushOn){ await disablePush(); toast('퇴실 알림을 껐어요'); }
+      else { const ok=await enablePush(); if(ok) toast('퇴실 알림을 켰어요 🔔'); }
+      await updatePushToggle();
+    };
+    updatePushToggle();
     $("#mPw").onclick=openPwChange;
     $("#mOut").onclick=()=>{ hideOv(); logout(); };
   }
@@ -739,23 +756,51 @@
     $("#tok").onclick=hideOv;
   }
 
-  // ── 퇴실 30분 전 알림: 이용 중이면 자동 구독(토글 없음). 권한은 OS 규칙상 한 번은 사용자가 허용해야 함 ──
-  let pushDone=false;
-  async function ensurePush(){
-    if(pushDone || DEMO || !VAPID_PUBLIC || !session) return;
-    if(!('serviceWorker'in navigator) || !('PushManager'in window) || typeof Notification==='undefined') return;
+  // ── 퇴실 30분 전 알림(웹푸시): 최초 로그인 팝업 + 메뉴 ON/OFF 토글 ──
+  let pushOn=false, pushInit=false;
+  function pushSupported(){ return !!VAPID_PUBLIC && ('serviceWorker'in navigator) && ('PushManager'in window) && typeof Notification!=='undefined'; }
+  async function currentSub(){ try{ const reg=await navigator.serviceWorker.ready; return await reg.pushManager.getSubscription(); }catch(_){ return null; } }
+  async function enablePush(){   // 권한 요청(필요시) + 구독 + 저장
+    if(!pushSupported() || !session) return false;
+    let perm=Notification.permission;
+    if(perm==='default') perm=await Notification.requestPermission();
+    if(perm==='denied'){ toast('브라우저 설정에서 알림을 허용해 주세요'); return false; }
+    if(perm!=='granted') return false;
     try{
-      let perm=Notification.permission;
-      if(perm==='default') perm=await Notification.requestPermission();
-      if(perm!=='granted') return;   // 거부 시 다음 기회에 다시 시도(pushDone 안 세움)
       const reg=await navigator.serviceWorker.ready;
       let sub=await reg.pushManager.getSubscription();
       if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlB64(VAPID_PUBLIC)});
       const r=await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions`,{method:'POST',
         headers:{...authH(),Prefer:'resolution=merge-duplicates'},
         body:JSON.stringify({user_id:session.user.id, endpoint:sub.endpoint, sub})});
-      if(r.ok) pushDone=true;
+      pushOn = r.ok; return pushOn;
+    }catch(_){ return false; }
+  }
+  async function disablePush(){   // 구독 해제 + 저장 삭제
+    try{ const sub=await currentSub();
+      if(sub){ try{ await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(sub.endpoint)}`,{method:'DELETE',headers:authH()}); }catch(_){}
+        await sub.unsubscribe().catch(()=>{}); }
     }catch(_){}
+    pushOn=false; return true;
+  }
+  async function initPush(){   // 최초 로그인 시 1회: 허용돼 있으면 조용히 구독 유지, 아직 미결정이면 안내 팝업
+    if(pushInit || DEMO || !pushSupported()) return; pushInit=true;
+    if(Notification.permission==='granted'){ enablePush(); return; }
+    if(Notification.permission!=='default') return;   // 거부 상태면 팝업 안 띄움(메뉴 토글로만)
+    let asked=false; try{ asked = localStorage.getItem('gn_pushasked')==='1'; }catch(_){}
+    if(asked) return;
+    try{ localStorage.setItem('gn_pushasked','1'); }catch(_){}
+    showOv(`<div class="confirm pushask"><div class="pushemoji">🔔</div><h3>퇴실 알림 받기</h3>
+      <p>이용시간 <b>30분 전</b>에 알려드려요.<br>알림 권한을 켜주세요.</p>
+      <div class="cb"><button class="cc" id="pushlater">나중에</button><button class="ok" id="pushnow">알림 켜기</button></div></div>`);
+    $("#pushlater").onclick=hideOv;
+    $("#pushnow").onclick=async()=>{ hideOv(); const ok=await enablePush(); if(ok) toast('퇴실 알림을 켰어요 🔔'); };
+  }
+  async function updatePushToggle(){   // 메뉴 토글 상태 반영
+    const t=$("#pushtgl"); if(!t) return;
+    let on=false;
+    if(pushSupported() && Notification.permission==='granted') on = !!(await currentSub());
+    pushOn=on; t.classList.toggle('on', on);
   }
   function urlB64(s){ const p='='.repeat((4-s.length%4)%4); const b=(s+p).replace(/-/g,'+').replace(/_/g,'/'); const raw=atob(b); return Uint8Array.from([...raw].map(c=>c.charCodeAt(0))); }
 
