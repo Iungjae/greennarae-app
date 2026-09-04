@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- 마스커블 아이콘: 전체 배경 채움 + 핵심은 중앙 80% 안전영역 안에 -->
+  <rect width="512" height="512" fill="#1b5e43"/>
+  <circle cx="256" cy="244" r="156" fill="#2e9e6b" opacity="0.22"/>
+  <!-- 줄기 -->
+  <path d="M256 430 C256 372 242 322 268 252" stroke="#e0f7ec" stroke-width="30" stroke-linecap="round" fill="none"/>
+  <!-- 왼쪽 잎 -->
+  <ellipse cx="176" cy="250" rx="92" ry="58" transform="rotate(-28 176 250)" fill="#5cc793"/>
+  <!-- 오른쪽 잎 -->
+  <ellipse cx="336" cy="206" rx="108" ry="70" transform="rotate(32 336 206)" fill="#a9e5c8"/>
+</svg>

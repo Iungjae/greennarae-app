@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>그린나래 좌석 예약 · 키오스크</title>
+<style>
+  :root{
+    --bg:#f2f2f7;--card:#fff;--ink:#1c1c1e;--ink2:#6b6b70;--ink3:#a1a1a8;--sep:rgba(60,60,67,.14);
+    --tint:#1f9254;--tint-d:#19773f;--tint-bg:#e7f4ed;
+    --busy:#d9820f;--busy-bg:#fbefda;--soon:#e2564d;--soon-bg:#fce8e6;--blk:#9a9ea4;--blk-bg:#ececee;
+    --red:#ff3b30;
+    --sf:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Apple SD Gothic Neo","Pretendard",system-ui,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    color-scheme:light;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0}
+  [hidden]{display:none!important}
+  html,body{height:100%;overflow:hidden}
+  body{background:#dcdce1;color:var(--ink);-webkit-font-smoothing:antialiased;font-family:var(--sf);letter-spacing:-.01em;
+    user-select:none;-webkit-user-select:none;touch-action:manipulation;display:flex;align-items:center;justify-content:center}
+  /* 1080×1920 고정 스테이지 — 뷰포트에 맞춰 스케일 */
+  #stage{width:1080px;height:1920px;background:var(--bg);position:relative;overflow:hidden;transform-origin:center center;flex:0 0 auto}
+  .screen{position:absolute;inset:0;display:flex;flex-direction:column;padding:56px 52px 40px}
+  .tnum,.mono{font-variant-numeric:tabular-nums}
+  .mono{font-family:var(--mono)}
+
+  /* 공통 헤더(로고/시계) */
+  .top{display:flex;align-items:flex-start;justify-content:space-between}
+  .brand{display:flex;align-items:center;gap:16px}
+  .brand .lg{width:62px;height:62px;border-radius:16px;display:block}
+  .brand b{font-size:36px;font-weight:700}
+  .clock{text-align:right}
+  .clock .t{font-size:44px;font-weight:700;line-height:1}
+  .clock .d{font-size:19px;color:var(--ink3);margin-top:6px;font-weight:500}
+
+  /* ── 메인(대기) 화면 ── */
+  #scMain .hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:54px}
+  .mark{display:flex;flex-direction:column;align-items:center;gap:22px}
+  .mark .big{width:180px;height:180px;border-radius:44px;box-shadow:0 18px 44px rgba(27,94,67,.22)}
+  .mark h1{font-size:56px;font-weight:800;letter-spacing:-.02em}
+  .mark p{font-size:26px;color:var(--ink2);font-weight:500}
+  .stats{display:flex;gap:26px;width:100%}
+  .stat{flex:1;background:var(--card);border-radius:30px;padding:40px 28px;display:flex;flex-direction:column;
+    align-items:center;gap:8px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+  .stat .lab{font-size:24px;color:var(--ink2);font-weight:600}
+  .stat .v{display:flex;align-items:baseline;gap:8px}
+  .stat .v b{font-size:104px;font-weight:800;line-height:.9;font-variant-numeric:proportional-nums;letter-spacing:-.03em}
+  .stat .v span{font-size:40px;font-weight:700}
+  .stat.busy .v b,.stat.busy .v span{color:var(--busy)}
+  .stat.free .v b,.stat.free .v span{color:var(--tint)}
+  .cta{display:flex;flex-direction:column;align-items:center;gap:22px;width:100%}
+  .reserveBtn{display:flex;align-items:center;justify-content:center;gap:18px;width:100%;
+    background:var(--tint);color:#fff;border:0;border-radius:36px;padding:44px;font-size:56px;font-weight:800;
+    box-shadow:0 16px 40px rgba(31,146,84,.36);transition:transform .1s}
+  .reserveBtn:active{transform:scale(.98)}
+  .reserveBtn .ic{font-size:60px}
+  .viewBtn{background:none;border:0;color:var(--tint);font-size:26px;font-weight:600;padding:14px 24px;border-radius:16px}
+  .viewBtn:active{background:var(--tint-bg)}
+  .foot{text-align:center;color:var(--ink3);font-size:20px;font-weight:500}
+  /* 좌석 화면: 하단 안내가 있으니 상단은 콤팩트 */
+  #scSeats .stat{padding:22px 26px;border-radius:24px}
+  #scSeats .stat .lab{font-size:19px}
+  #scSeats .stat .v b{font-size:58px} #scSeats .stat .v span{font-size:26px}
+  .pbtns{display:flex;gap:14px;align-items:center;position:relative;z-index:78}  /* cornerTap(75) 위로 — 홈으로/좌석 신고 클릭 가로채임 방지 */
+  .homeBtn,.reportBtn{border:0;border-radius:16px;height:66px;padding:0 32px;font-size:24px;font-weight:700;font-family:inherit;box-shadow:0 2px 8px rgba(0,0,0,.05);white-space:nowrap}
+  .reportBtn{background:#fdeceb;color:#c0392b}
+  .reportBtn:active{background:#f4d6d2}
+  .reportBtn.on{background:#c0392b;color:#fff}   /* 신고 모드 활성 — 한 번 더 누르면 취소 */
+  /* 하단 이용안내(A11) — 좌석 화면 하단 (원본 비율) */
+  .guide{flex:1;min-height:0;display:flex;flex-direction:column;margin-top:40px}
+  .pcaut{flex:1;display:flex;flex-direction:column;gap:18px}
+  .pcaut h3{text-align:center;font-size:32px;font-weight:800;letter-spacing:-.01em}
+  .pgrid{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:16px}
+  .pc{display:flex;align-items:center;gap:18px;background:var(--card);border-radius:22px;padding:20px 28px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  .pc i{flex:0 0 auto;width:44px;height:44px;border-radius:999px;background:var(--tint);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:800;font-style:normal}
+  .pc b{display:block;font-size:26px;font-weight:800;line-height:1.25;word-break:keep-all}
+  .pc span{display:block;font-size:20px;color:var(--ink2);margin-top:5px;line-height:1.4;word-break:keep-all}
+  .howto{display:flex;flex-direction:column;align-items:center;gap:14px}
+  .hline{display:flex;align-items:center;gap:11px}
+  .hline .hic{font-size:30px} .hline b{font-size:28px;font-weight:800;letter-spacing:-.01em}
+  .chips{display:flex;gap:16px}
+  .chip{width:220px;background:var(--card);border-radius:18px;padding:18px 16px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.04);
+    display:flex;flex-direction:column;align-items:center;gap:4px}
+  .chip span{font-size:34px} .chip b{font-size:23px;font-weight:800} .chip small{font-size:16px;color:var(--ink3)}
+
+  /* ── 스캔 화면 ── */
+  #scScan{align-items:center;justify-content:center;text-align:center;gap:0}
+  #scScan .body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:48px}
+  .scanframe{position:relative;width:420px;height:420px;display:flex;align-items:center;justify-content:center}
+  .scanframe .corner{position:absolute;width:78px;height:78px;border:9px solid var(--tint);border-radius:6px}
+  .scanframe .c1{top:0;left:0;border-right:0;border-bottom:0;border-top-left-radius:34px}
+  .scanframe .c2{top:0;right:0;border-left:0;border-bottom:0;border-top-right-radius:34px}
+  .scanframe .c3{bottom:0;left:0;border-right:0;border-top:0;border-bottom-left-radius:34px}
+  .scanframe .c4{bottom:0;right:0;border-left:0;border-top:0;border-bottom-right-radius:34px}
+  .scanframe .ph{font-size:150px;line-height:1}
+  .scanframe .line{position:absolute;left:40px;right:40px;height:5px;border-radius:3px;background:var(--tint);
+    box-shadow:0 0 18px 2px rgba(31,146,84,.5);animation:scanmove 2.2s ease-in-out infinite}
+  @keyframes scanmove{0%,100%{top:60px}50%{top:360px}}
+  #scScan h2{font-size:52px;font-weight:800;letter-spacing:-.02em}
+  #scScan p{font-size:26px;color:var(--ink2);font-weight:500;margin-top:14px;line-height:1.5}
+  #scScan .cancel{margin-top:20px;background:var(--card);border:0;border-radius:26px;padding:26px 60px;font-size:28px;
+    font-weight:700;color:var(--ink2);box-shadow:0 2px 10px rgba(0,0,0,.05)}
+
+  /* ── 좌석 선택/현황 화면 ── */
+  #scSeats{gap:0}
+  .seatsBody{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-start;gap:18px;margin-top:16px}
+  .phead{display:flex;align-items:center;justify-content:space-between}
+  .homeBtn{background:#fff;color:var(--ink2)}
+  .homeBtn:active{background:#eceef1}
+  .bigclock{text-align:center}
+  .bigclock .t{font-size:64px;font-weight:700;line-height:1}
+  .bigclock .d{font-size:21px;color:var(--ink3);margin-top:6px;font-weight:500}
+  .greet{border-radius:22px;padding:24px 30px;font-size:30px;font-weight:600;text-align:center}
+  .greet.pick{background:var(--tint-bg);color:var(--tint-d)}
+  .greet.view{background:var(--card);color:var(--ink2);box-shadow:0 2px 10px rgba(0,0,0,.05)}
+  .greet b{font-weight:800;color:var(--tint-d)}
+  .legend{display:flex;gap:30px;justify-content:center;font-size:22px;color:var(--ink2);font-weight:500}
+  .legend i{display:inline-block;width:18px;height:18px;border-radius:6px;margin-right:9px;vertical-align:-2px}
+  .stage2{display:flex;align-items:stretch;justify-content:center;gap:20px;background:var(--card);border-radius:30px;padding:34px;
+    box-shadow:0 2px 10px rgba(0,0,0,.05)}
+  .zone{display:flex;flex-direction:column;justify-content:space-between;gap:14px}
+  .zoneMid{display:flex;flex-direction:column;width:648px}
+  .lecture{height:452px;background:var(--bg);border-radius:26px;border-top-right-radius:52px;display:flex;flex-direction:column;
+    gap:8px;align-items:center;justify-content:center;color:var(--ink3)}
+  .lecture b{font-size:36px;font-weight:700;letter-spacing:.14em}
+  .lecture span{font-size:21px;font-weight:500}
+  .brow{display:flex;justify-content:space-between;margin-top:22px}
+  .brow.bot{margin-top:16px}
+  .table{height:54px;border-radius:14px;background:#e6e6eb;margin-top:16px}
+  .seat{border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-weight:700;font-size:28px;width:96px;height:86px;flex:0 0 auto;font-variant-numeric:tabular-nums;
+    border:2px solid transparent;transition:transform .08s}
+  .seat small{font-size:14px;font-weight:600;margin-top:4px;letter-spacing:-.02em}
+  .seat.busy small,.seat.soon small{font-variant-numeric:tabular-nums}
+  .seat.free{background:var(--tint-bg);color:var(--tint-d)}
+  .seat.busy{background:var(--busy-bg);color:var(--busy)}
+  .seat.soon{background:var(--soon-bg);color:var(--soon)}
+  .seat.block{background:var(--blk-bg);color:var(--blk)}
+  .seat.pick{border-color:var(--tint);box-shadow:0 0 0 5px var(--tint-bg)}
+  .seat.sel:active{transform:scale(.96)}
+
+  /* 모달 */
+  .ov{position:absolute;inset:0;background:rgba(0,0,0,.42);display:flex;align-items:center;justify-content:center;padding:60px;z-index:90}
+  .modal{background:#fff;border-radius:36px;padding:52px;max-width:720px;width:100%;text-align:center;box-shadow:0 30px 90px rgba(0,0,0,.32)}
+  .modal h2{font-size:44px;font-weight:800;margin:0 0 10px}
+  .modal p{font-size:28px;color:var(--ink2);margin:0 0 32px;line-height:1.45}
+  .times{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-bottom:30px}
+  .times button{padding:32px;border:2px solid var(--sep);background:#fff;border-radius:22px;font-size:32px;font-weight:700;color:var(--ink);font-family:inherit}
+  .times button.on{border-color:var(--tint);background:var(--tint-bg);color:var(--tint-d)}
+  .btns{display:flex;gap:18px}
+  .btns button{flex:1;padding:30px;border:none;border-radius:22px;font-size:30px;font-weight:700;font-family:inherit}
+  .btns .go{background:var(--tint);color:#fff}.btns .go:disabled{opacity:.45}
+  .btns .go.out{background:var(--soon-bg);color:var(--soon)}
+  .btns .cc{background:var(--bg);color:var(--ink2)}
+  .btns .go .cd{opacity:.72;font-variant-numeric:tabular-nums;margin-left:2px}
+  .linkbtn{width:100%;background:var(--bg);border:0;border-radius:22px;color:var(--ink2);font-size:28px;font-weight:700;margin-top:16px;padding:26px;font-family:inherit}
+  .linkbtn:active{background:#e6e6eb}
+  .myinfo{display:flex;gap:18px;margin:0 0 30px}
+  .myinfo .mi{flex:1;background:var(--bg);border-radius:22px;padding:26px}
+  .myinfo .k{font-size:22px;color:var(--ink2);font-weight:600;margin-bottom:8px}
+  .myinfo .v{font-size:44px;font-weight:800;color:var(--tint-d)}
+  .reasons{display:flex;flex-direction:column;gap:16px;margin-bottom:26px}
+  .reasons button{padding:30px;border:2px solid var(--sep);background:#fff;border-radius:22px;font-size:30px;font-weight:700;color:var(--ink);font-family:inherit}
+  .reasons button:active{background:var(--bg)}
+  .greet.report{background:#fdeceb;color:#b23b32} .greet.report b{color:#b23b32}
+  .modal .em{font-size:92px;line-height:1;margin-bottom:6px}
+  .toast{position:absolute;left:50%;bottom:70px;transform:translateX(-50%);background:rgba(28,28,30,.95);color:#fff;
+    padding:24px 44px;border-radius:24px;font-size:28px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:100;max-width:80%;text-align:center}
+  .toast.show{opacity:1}
+  .err{background:var(--red)!important}
+  /* ── 관리자 모드 (D) ── */
+  #cornerTap{position:absolute;top:0;right:0;width:130px;height:130px;background:none;border:0;z-index:75;opacity:0}
+  #adminOv{position:absolute;inset:0;background:var(--bg);z-index:80;display:flex;flex-direction:column;padding:44px 48px}
+  .ahead{display:flex;align-items:center;gap:20px;margin-bottom:26px}
+  .ahead>b{font-size:34px;font-weight:800}
+  .atabs{display:flex;gap:10px;flex:1}
+  .atabs button{background:var(--card);border:0;border-radius:16px;padding:16px 26px;font-size:24px;font-weight:700;color:var(--ink2);font-family:inherit}
+  .atabs button.on{background:var(--tint);color:#fff}
+  .aclose{background:var(--card);border:0;border-radius:16px;padding:16px 28px;font-size:24px;font-weight:700;color:var(--ink);font-family:inherit}
+  .abody{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:24px}
+  .asec{background:var(--card);border-radius:26px;padding:30px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  .asec h3{font-size:28px;font-weight:800;margin-bottom:22px}
+  .alist{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .arow{display:flex;align-items:center;justify-content:space-between;gap:14px;background:var(--bg);border-radius:18px;padding:16px 20px}
+  .aid{font-size:26px;font-weight:800;display:flex;flex-direction:column;line-height:1.05;min-width:120px}
+  .aid small{font-size:15px;font-weight:600;color:var(--ink3);margin-top:5px}
+  .aid.occ{color:var(--busy)} .aid.blk{color:var(--blk)} .aid.fr{color:var(--tint-d)}
+  .aacts{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  .aacts button{background:#fff;border:1.5px solid var(--sep);border-radius:12px;padding:11px 15px;font-size:18px;font-weight:700;color:var(--ink);font-family:inherit}
+  .aacts button:active{background:var(--bg)}
+  .rrow{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 4px;border-bottom:1px solid var(--sep);font-size:22px}
+  .rrow small{display:block;font-size:16px;color:var(--ink3);margin-top:3px}
+  .rrow button{background:var(--tint-bg);border:0;border-radius:12px;padding:12px 20px;font-size:19px;font-weight:700;color:var(--tint-d);font-family:inherit}
+  .amuted{color:var(--ink3);font-size:22px;text-align:center;padding:20px}
+  .srow{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px 0;border-bottom:1px solid var(--sep)}
+  .srow:last-child{border-bottom:0}
+  .sl{font-size:24px;font-weight:700} .sl small{display:block;font-size:18px;color:var(--ink3);font-weight:500;margin-top:4px}
+  .stepper{display:flex;align-items:center;gap:14px}
+  .stepper button{width:56px;height:56px;border-radius:14px;border:0;background:var(--bg);font-size:32px;font-weight:800;color:var(--ink);font-family:inherit}
+  .stepper .val{font-size:28px;font-weight:800;min-width:130px;text-align:center}
+  .seg{display:flex;background:var(--bg);border-radius:14px;padding:4px}
+  .seg button{border:0;background:none;border-radius:11px;padding:12px 22px;font-size:22px;font-weight:700;color:var(--ink2);font-family:inherit}
+  .seg button.on{background:#fff;color:var(--tint-d);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+  .sw{width:78px;height:46px;border-radius:999px;border:0;background:#d1d1d6;position:relative;transition:background .15s}
+  .sw::after{content:'';position:absolute;top:4px;left:4px;width:38px;height:38px;border-radius:999px;background:#fff;transition:left .15s}
+  .sw.on{background:var(--tint)} .sw.on::after{left:36px}
+  .sbtn{background:var(--bg);border:0;border-radius:14px;padding:14px 24px;font-size:22px;font-weight:700;color:var(--ink);font-family:inherit}
+  .ninp{width:100%;padding:18px;border:1.5px solid var(--sep);border-radius:14px;font-size:22px;font-family:inherit;margin-bottom:12px;color:var(--ink)}
+  .ntxt{width:100%;height:150px;padding:18px;border:1.5px solid var(--sep);border-radius:14px;font-size:22px;font-family:inherit;resize:none;color:var(--ink);line-height:1.5}
+  .ninp:focus,.ntxt:focus{outline:none;border-color:var(--tint)}
+  .acards{display:flex;gap:18px}
+  .acard{flex:1;background:var(--bg);border-radius:20px;padding:26px;text-align:center}
+  .acard .n{font-size:54px;font-weight:800;color:var(--tint-d)} .acard .l{font-size:20px;color:var(--ink2);font-weight:600;margin-top:4px}
+  .bars{display:flex;align-items:flex-end;gap:5px;height:190px}
+  .bars .bar{flex:1;background:var(--tint);border-radius:5px 5px 0 0;min-height:3px}
+  .bl{display:flex;justify-content:space-between;font-size:15px;color:var(--ink3);margin-top:8px}
+  .pindots{display:flex;gap:18px;justify-content:center;margin:6px 0 30px}
+  .pindots i{width:22px;height:22px;border-radius:999px;background:var(--sep)}
+  .pindots i.on{background:var(--tint)}
+  .numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:8px}
+  .numpad button{padding:26px;border:0;background:var(--bg);border-radius:20px;font-size:38px;font-weight:700;color:var(--ink);font-family:inherit}
+  .numpad button:active{background:#e6e6eb}
+  #cfg{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:60px;text-align:center}
+  #cfg div{max-width:800px;font-size:26px;line-height:1.7;color:var(--ink2)}
+  .dot{position:absolute;top:14px;right:16px;font-size:16px;color:var(--ink3)}
+</style>
+</head>
+<body>
+<!-- ▼▼ 배포 전 두 줄 채우기 (Supabase ▸ Project Settings ▸ API) ▼▼ -->
+<script>
+  const SUPABASE_URL = "https://qpatiluzrimxdhyffcgm.supabase.co";   // 예: https://xxxx.supabase.co
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwYXRpbHV6cmlteGRoeWZmY2dtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0MDQ3OTcsImV4cCI6MjEwMzk4MDc5N30.TTbOIJ2bA232XGergCQhaM1TNgAP7-TCCJWN-m_idjY";   // anon public 키 (eyJ... ) — service_role 절대 금지
+  const DEMO         = false; // true = 백엔드 없이 화면 미리보기(가짜 좌석 상태)
+</script>
+
+<div id="cfg" hidden><div>
+  <b style="font-size:34px;color:#1c1c1e">설정이 필요합니다</b><br><br>
+  이 파일 상단의 <b>SUPABASE_URL</b> / <b>SUPABASE_KEY</b> 두 줄을 채운 뒤 다시 열어주세요.<br>
+  (Supabase 대시보드 ▸ Project Settings ▸ API 에서 복사)
+</div></div>
+
+<div id="stage" hidden>
+  <!-- 메인(대기) -->
+  <div class="screen" id="scMain">
+    <div class="top">
+      <div class="brand"><svg class="lg" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#1b5e43"/><path d="M32 52C32 45 30.5 39 33 32" stroke="#e0f7ec" stroke-width="4.2" stroke-linecap="round" fill="none"/><ellipse cx="23" cy="31" rx="10.5" ry="6.6" transform="rotate(-28 23 31)" fill="#5cc793"/><ellipse cx="41" cy="26" rx="12" ry="7.6" transform="rotate(32 41 26)" fill="#a9e5c8"/></svg></div>
+      <div class="clock"><div class="t tnum" id="clkM">--:--:--</div><div class="d" id="dayM"></div></div>
+    </div>
+    <div class="hero">
+      <div class="mark">
+        <svg class="big" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#1b5e43"/><circle cx="32" cy="30.5" r="19.5" fill="#2e9e6b" opacity=".22"/><path d="M32 53C32 45 30.5 39 33.5 31.5" stroke="#e0f7ec" stroke-width="3.8" stroke-linecap="round" fill="none"/><ellipse cx="22" cy="31" rx="11.5" ry="7.2" transform="rotate(-28 22 31)" fill="#5cc793"/><ellipse cx="42" cy="25.5" rx="13.5" ry="8.6" transform="rotate(32 42 25.5)" fill="#a9e5c8"/></svg>
+        <h1>그린나래</h1>
+        <p>편안한 독서 공간, 그린나래에 오신 것을 환영합니다 🌿</p>
+      </div>
+      <div class="stats">
+        <div class="stat busy"><div class="lab">현재 이용중</div><div class="v"><b class="tnum" id="nOccM">0</b><span>명</span></div></div>
+        <div class="stat free"><div class="lab">남은 좌석</div><div class="v"><b class="tnum" id="nFreeM">24</b><span>석</span></div></div>
+      </div>
+      <div class="cta">
+        <button class="reserveBtn" id="btnReserve">예약하기</button>
+        <button class="viewBtn" id="btnView">좌석 이용현황 보기</button>
+      </div>
+    </div>
+    <div class="foot">그린나래 이용 문의 · 031-379-0174</div>
+  </div>
+
+  <!-- 스캔 -->
+  <div class="screen" id="scScan" hidden>
+    <div class="body">
+      <div class="scanframe">
+        <span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+        <span class="ph">📱</span><span class="line"></span>
+      </div>
+      <div>
+        <h2>휴대폰의 내 QR을 대주세요</h2>
+        <p>그린나래 앱의 <b>내 QR</b>을 리더기 앞에 대면<br>자동으로 인식됩니다.</p>
+      </div>
+      <button class="cancel" id="btnScanCancel">취소</button>
+    </div>
+  </div>
+
+  <!-- 좌석 선택/현황 -->
+  <div class="screen" id="scSeats" hidden>
+    <div class="phead">
+      <div class="brand"><svg class="lg" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#1b5e43"/><path d="M32 52C32 45 30.5 39 33 32" stroke="#e0f7ec" stroke-width="4.2" stroke-linecap="round" fill="none"/><ellipse cx="23" cy="31" rx="10.5" ry="6.6" transform="rotate(-28 23 31)" fill="#5cc793"/><ellipse cx="41" cy="26" rx="12" ry="7.6" transform="rotate(32 41 26)" fill="#a9e5c8"/></svg><b>그린나래</b></div>
+      <div class="pbtns">
+        <button class="homeBtn" id="btnHome">홈으로</button>
+        <button class="reportBtn" id="btnReport">좌석 신고</button>
+      </div>
+    </div>
+    <div class="seatsBody">
+    <div class="stats">
+      <div class="stat busy"><div class="lab">현재 이용중</div><div class="v"><b class="tnum" id="nOccS">0</b><span>명</span></div></div>
+      <div class="stat free"><div class="lab">남은 좌석</div><div class="v"><b class="tnum" id="nFreeS">24</b><span>석</span></div></div>
+    </div>
+    <div class="greet view" id="greet">좌석 이용현황</div>
+    <div class="legend">
+      <span><i style="background:var(--tint)"></i>빈자리</span>
+      <span><i style="background:var(--busy)"></i>이용중</span>
+      <span><i style="background:var(--soon)"></i>곧 만료</span>
+      <span><i style="background:var(--blk)"></i>점검중</span>
+    </div>
+    <div class="stage2">
+      <div class="zone" id="zA"></div>
+      <div class="zoneMid">
+        <div class="lecture"><b>강의실</b><span>예약할 수 없는 공간</span></div>
+        <div class="brow" id="zBtop"></div>
+        <div class="table"></div>
+        <div class="brow bot" id="zBbot"></div>
+      </div>
+      <div class="zone" id="zC"></div>
+    </div>
+    <div class="guide">
+      <section class="pcaut">
+        <h3>이용 시 유의사항</h3>
+        <div class="pgrid">
+          <div class="pc"><i>1</i><div><b>그린나래는 카페입니다</b><span>큰 소음은 제한되나, 대화는 가능한 공간입니다.</span></div></div>
+          <div class="pc"><i>2</i><div><b>음식물 섭취 제한</b><span>음료를 제외한 음식물 섭취를 제한합니다.</span></div></div>
+          <div class="pc"><i>3</i><div><b>이용시간 만료 시 자리 반환</b><span>이용시간이 만료되면 별도 통보 없이 자동 반환됩니다.</span></div></div>
+          <div class="pc"><i>4</i><div><b>퇴실 후 자리 정리</b><span>퇴실 시 이용한 자리는 깨끗하게 청소 부탁드립니다.</span></div></div>
+          <div class="pc"><i>5</i><div><b>미사용 좌석 비우기</b><span>미사용 좌석에 남아있는 짐은 별도 통보 없이 처리됩니다.</span></div></div>
+          <div class="pc"><i>6</i><div><b>이용 인원 지키기</b><span>1인석 소파는 2인이 앉을 수 없습니다.</span></div></div>
+        </div>
+      </section>
+    </div>
+    </div>
+  </div>
+
+  <div class="ov" id="ov" hidden><div class="modal" id="modal"></div></div>
+  <div class="toast" id="toast"></div>
+  <div class="dot" id="dot">·</div>
+  <button id="cornerTap" aria-label="관리자 모드"></button>
+  <div id="adminOv" hidden>
+    <div class="ahead"><b>🔧 관리자 모드</b><div class="atabs" id="atabs"></div><button class="aclose" id="aClose">닫기 ✕</button></div>
+    <div class="abody" id="abody"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const $ = s => document.querySelector(s);
+  const TEST = location.search.indexOf('test')>=0;   // ?test → 스캔 화면에 토큰 입력창(리더기 없이 테스트)
+  if(!DEMO && (!SUPABASE_URL || !SUPABASE_KEY)){ $("#cfg").hidden=false; return; }
+  $("#stage").hidden=false;
+
+  // ── 1080×1920 스테이지 스케일 맞춤 ──
+  const stage=$("#stage");
+  function fit(){ const s=Math.min(innerWidth/1080, innerHeight/1920); stage.style.transform=`scale(${s})`; }
+  addEventListener('resize',fit); fit();
+
+  // ── 화면 슬립 방지 (A15, Screen Wake Lock) ──
+  let wakeLock=null;
+  async function keepAwake(){ try{ if('wakeLock' in navigator){ wakeLock=await navigator.wakeLock.request('screen'); } }catch(e){} }
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') keepAwake(); });
+  keepAwake();
+
+  // ── Supabase REST ──
+  const H = { "apikey":SUPABASE_KEY, "Authorization":"Bearer "+SUPABASE_KEY, "Content-Type":"application/json" };
+  async function rpc(fn, args){ const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`,{method:"POST",headers:H,body:JSON.stringify(args||{})});
+    if(!r.ok) throw new Error(await r.text()); return r.json(); }
+  async function rest(path){ const r=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{headers:H});
+    if(!r.ok) throw new Error(await r.text()); return r.json(); }
+
+  // ── 좌석 레이아웃 (A 좌 8 · B 중 12 · C 우 4) ──
+  const A=['A1','A2','A3','A4','A5','A6','A7','A8'];
+  const Btop=['B1','B2','B3','B4','B5','B6'], Bbot=['B7','B8','B9','B10','B11','B12'];
+  const C=['C1','C2','C3','C4'];
+  function seatEl(id){ const d=document.createElement('div'); d.className='seat free sel'; d.dataset.id=id;
+    d.innerHTML=`${id}<small></small>`; d.onpointerdown=()=>onSeat(id); return d; }
+  (function(){ const z=$("#zA"); z.style.display='grid'; z.style.gridTemplateColumns='repeat(2,100px)'; z.style.gap='14px';
+    z.style.alignContent='space-between'; A.forEach(id=>z.appendChild(seatEl(id))); })();
+  Btop.forEach(id=>$("#zBtop").appendChild(seatEl(id)));
+  Bbot.forEach(id=>$("#zBbot").appendChild(seatEl(id)));
+  C.forEach(id=>$("#zC").appendChild(seatEl(id)));
+  const seatNodes={}; document.querySelectorAll('.seat').forEach(n=>seatNodes[n.dataset.id]=n);
+
+  // ── 상태 ──
+  let statusMap={}, scanned=null, picking=null, mode='view', prevMode='view', screen='main', idleTimer=null, doneCd=null;
+
+  function renderSeats(){
+    let occ=0, free=0;
+    for(const id in seatNodes){
+      const s=statusMap[id]||{}; const n=seatNodes[id]; n.className='seat sel';
+      const t=n.querySelector('small'); t.textContent='';
+      if(s.is_blocked){ n.classList.add('block'); t.textContent='점검중'; }
+      else if(s.occupied){ const mins=s.end_at?(new Date(s.end_at)-Date.now())/60000:999;
+        n.classList.add(mins<=30?'soon':'busy'); occ++; t.textContent = s.sno_masked || (mins<=30?'곧 만료':'이용중'); }
+      else { n.classList.add('free'); free++; }
+      if(picking===id) n.classList.add('pick');
+    }
+    $("#nOccM").textContent=occ; $("#nFreeM").textContent=free;
+    $("#nOccS").textContent=occ; $("#nFreeS").textContent=free;
+  }
+  const MOCK={ A2:{occupied:true,end_at:new Date(Date.now()+72*60000).toISOString(),sno_masked:'2021***12'},
+    A5:{occupied:true,end_at:new Date(Date.now()+18*60000).toISOString(),sno_masked:'2020***07'},
+    B3:{occupied:true,end_at:new Date(Date.now()+95*60000).toISOString(),sno_masked:'2022***48'},
+    B4:{occupied:true,end_at:new Date(Date.now()+40*60000).toISOString(),sno_masked:'2019***33'},
+    B8:{occupied:true,end_at:new Date(Date.now()+12*60000).toISOString(),sno_masked:'2023***91'},
+    B11:{is_blocked:true}, C1:{occupied:true,end_at:new Date(Date.now()+60*60000).toISOString(),sno_masked:'2021***05'} };
+  async function loadStatus(){
+    if(DEMO){ statusMap=MOCK; renderSeats(); return; }
+    try{ const rows=await rest('seat_status?select=*'); const m={}; rows.forEach(r=>m[r.seat_id]=r); statusMap=m; renderSeats(); }
+    catch(e){ setDot(false); }
+  }
+
+  // ── 화면 전환 ──
+  function show(id){ ['scMain','scScan','scSeats'].forEach(s=>$("#"+s).hidden=(s!==id)); screen=id==='scMain'?'main':id==='scScan'?'scan':'seats'; }
+  function goMain(){ closeModal(); scanned=null; picking=null; mode='view'; clearTimeout(idleTimer); clearInterval(doneCd); show('scMain'); renderSeats(); }
+  function goScan(){ picking=null; show('scScan'); bumpIdle(45000); }
+  function goSeats(m){ mode=m; scanned = (m==='pick'||m==='report')?scanned:null; picking=null;   // 신고 모드에서도 스캔 정보 유지 → 취소 시 예약(pick) 복원
+    const g=$("#greet");
+    if(m==='pick'){ g.className='greet pick'; g.innerHTML=`👋 <b>${(scanned&&(scanned.name||scanned.student_no))||'회원'}</b>님, 원하는 <b>빈 좌석</b>을 눌러 예약하세요`; }
+    else if(m==='report'){ g.className='greet report'; g.innerHTML=`🚩 신고할 좌석을 선택해 주세요`; }
+    else { g.className='greet view'; g.textContent='좌석 이용현황'; }
+    const rb=$("#btnReport"); if(rb){ rb.classList.toggle('on', m==='report'); rb.textContent = m==='report'?'신고 취소':'좌석 신고'; }
+    show('scSeats'); renderSeats(); bumpIdle(60000);
+  }
+  $("#btnReserve").onclick=goScan;
+  $("#btnView").onclick=()=>goSeats('view');
+  $("#btnReport").onclick=()=>{ if(mode==='report') goSeats(prevMode); else { prevMode=mode; goSeats('report'); } };   // 토글: 취소 시 직전 모드(예약/이용현황)로 복귀
+  $("#btnHome").onclick=goMain;
+  $("#btnScanCancel").onclick=goMain;
+
+  // ── 좌석 탭 ──
+  function onSeat(id){
+    if(screen!=='seats') return;
+    bumpIdle(60000);
+    const s=statusMap[id]||{};
+    if(mode==='report'){ openReport(id); return; }   // 모든 좌석 신고 가능(예약 없이 짐만 있는 경우 포함)
+    if(mode!=='pick' || !scanned){ toast("예약하려면 '예약하기'를 눌러 QR을 스캔하세요",true); return; }
+    if(s.is_blocked){ toast('점검 중인 좌석입니다',true); return; }
+    if(s.occupied){ toast('이미 이용 중인 좌석입니다',true); return; }
+    picking=id; renderSeats(); openTime(id);
+  }
+
+  // ── 시간 선택 모달 ──
+  let chosenMin=60;
+  function openTime(id){
+    chosenMin=0;   // 기본 선택 없음 — 사용자가 직접 골라야 예약하기 활성화
+    $("#modal").innerHTML=`<h2>${id}번 좌석</h2><p>이용 시간을 선택하세요</p>
+      <div class="times" id="times">${[30,60,90,120].map(m=>`<button data-m="${m}">${m<60?m+'분':Math.floor(m/60)+'시간'+(m%60?' '+(m%60)+'분':'')}</button>`).join('')}</div>
+      <div class="btns"><button class="cc" id="mc">취소</button><button class="go" id="mg" disabled>예약하기</button></div>`;
+    $("#ov").hidden=false;
+    document.querySelectorAll('#times button').forEach(b=>b.onclick=()=>{ chosenMin=+b.dataset.m;
+      document.querySelectorAll('#times button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); $("#mg").disabled=false; });
+    $("#mc").onclick=()=>{ closeModal(); picking=null; renderSeats(); };
+    $("#mg").onclick=doReserve;
+  }
+  function closeModal(){ $("#ov").hidden=true; }
+
+  async function doReserve(){
+    if(!chosenMin){ toast('이용 시간을 선택해 주세요',true); return; }
+    if(DEMO){ done('reserve', picking, new Date(Date.now()+chosenMin*60000).toISOString()); return; }
+    $("#mg").disabled=true;
+    try{ const res=await rpc('reserve_seat',{p_token:scanned.token,p_seat:picking,p_minutes:chosenMin});
+      if(res.ok){ done('reserve', picking, res.end_at); }
+      else { toast(res.error||'예약 실패',true); closeModal(); picking=null; renderSeats(); }
+    }catch(e){ toast('통신 오류. 다시 시도해 주세요',true); } finally{ $("#mg").disabled=false; }
+    await loadStatus();
+  }
+
+  function done(kind, seat, endAt){
+    const et=endAt?new Date(endAt):null;
+    const hm=et?String(et.getHours()).padStart(2,'0')+':'+String(et.getMinutes()).padStart(2,'0'):'';
+    const title=kind==='reserve'?'예약 완료':kind==='renew'?'연장 완료':'퇴실 완료';
+    const msg=kind==='checkout'?'이용해 주셔서 감사합니다':'편안한 독서 되세요';
+    $("#modal").innerHTML=`<div class="em">🌿</div><h2>${title}</h2>
+      <p>${seat?seat+'번 좌석':''}${hm?' · 종료 '+hm:''}<br>${msg}</p>
+      <div class="btns"><button class="go" id="mok">확인 <span class="cd" id="cd">(5)</span></button></div>`;
+    $("#ov").hidden=false; $("#mok").onclick=goMain;
+    clearTimeout(idleTimer); clearInterval(doneCd);
+    let n=5;   // 5초 후 메인으로 자동 복귀 — 확인 버튼에 남은 초 표시
+    doneCd=setInterval(()=>{ n--; if(n<=0){ clearInterval(doneCd); goMain(); return; } const cd=$("#cd"); if(cd) cd.textContent='('+n+')'; }, 1000);
+  }
+  function fmtRem(m){ const h=Math.floor(m/60), mm=m%60; return h>0?`${h}시간 ${String(mm).padStart(2,'0')}분`:`${mm}분`; }
+
+  function bumpIdle(ms){ clearTimeout(idleTimer); idleTimer=setTimeout(goMain, ms||60000); }
+
+  // ── QR 스캔 (USB 리더기 = '토큰 + Enter' 타이핑) ── 스캔 화면에서만 동작 ──
+  let buf='', bufT=0;
+  document.addEventListener('keydown', e=>{
+    const now=Date.now(); if(now-bufT>120) buf=''; bufT=now;
+    if(e.key==='Enter'){ const code=buf.trim(); buf=''; if(code && screen==='scan') onScan(code); return; }
+    if(e.key.length===1) buf+=e.key;
+  });
+  async function onScan(token){
+    bumpIdle(60000);
+    if(DEMO){ scanned={token:'demo',user_id:'demo',name:'이태규',student_no:'202002502'}; goSeats('pick'); return; }
+    try{
+      const rows=await rpc('verify_qr',{p_token:token}); const u=Array.isArray(rows)?rows[0]:rows;
+      if(!u||!u.user_id){ toast('QR이 만료되었어요. 앱에서 새로고침 후 다시 대주세요', true); return; }
+      scanned={token, user_id:u.user_id, name:u.name, student_no:u.student_no};
+      const had = await offerCheckout(u.user_id);
+      if(!had) goSeats('pick');
+    }catch(e){ toast('확인 중 오류. 다시 시도해 주세요', true); }
+  }
+
+  // A7: 스캔한 회원이 이용 중이면 본인 예약정보 창(연장/퇴실). 있으면 true
+  let myRes=null;
+  async function offerCheckout(uid){
+    if(DEMO){ myRes={seat_id:'B5',end_at:new Date(Date.now()+22*60000).toISOString()}; showMyReservation(); return true; }
+    try{
+      const mine=await rest(`reservations?select=seat_id,end_at&user_id=eq.${uid}&status=eq.active`);
+      if(mine && mine.length){ myRes=mine[0]; showMyReservation(); return true; }
+    }catch(e){}
+    return false;
+  }
+  function showMyReservation(){
+    const r=myRes; const remMin=Math.max(0,Math.round((new Date(r.end_at)-Date.now())/60000));
+    const et=new Date(r.end_at), hm=String(et.getHours()).padStart(2,'0')+':'+String(et.getMinutes()).padStart(2,'0');
+    show('scSeats'); $("#greet").className='greet view'; $("#greet").textContent='좌석 이용현황'; renderSeats();
+    $("#modal").innerHTML=`<h2>${(scanned&&scanned.name)||'회원'}님</h2>
+      <p style="margin-bottom:26px">현재 <b style="color:var(--tint-d)">${r.seat_id}번 좌석</b> 이용 중이에요</p>
+      <div class="myinfo"><div class="mi"><div class="k">남은 시간</div><div class="v mono">${fmtRem(remMin)}</div></div>
+        <div class="mi"><div class="k">종료 시각</div><div class="v mono">${hm}</div></div></div>
+      <div class="btns"><button class="cc" id="mext">연장하기</button><button class="go out" id="mout">퇴실하기</button></div>
+      <button class="linkbtn" id="mkeep">계속 이용 · 닫기</button>`;
+    $("#ov").hidden=false;
+    $("#mkeep").onclick=goMain; $("#mext").onclick=openRenew; $("#mout").onclick=doCheckout;
+  }
+  function openRenew(){
+    chosenMin=0;
+    $("#modal").innerHTML=`<h2>이용 시간 연장</h2><p>${myRes.seat_id}번 좌석 · 추가할 시간을 선택하세요</p>
+      <div class="times" id="times">${[30,60,90,120].map(m=>`<button data-m="${m}">${m<60?m+'분':Math.floor(m/60)+'시간'+(m%60?' '+(m%60)+'분':'')}</button>`).join('')}</div>
+      <div class="btns"><button class="cc" id="mc">뒤로</button><button class="go" id="mg" disabled>연장하기</button></div>`;
+    document.querySelectorAll('#times button').forEach(b=>b.onclick=()=>{ chosenMin=+b.dataset.m;
+      document.querySelectorAll('#times button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); $("#mg").disabled=false; });
+    $("#mc").onclick=showMyReservation; $("#mg").onclick=doRenew;
+  }
+  async function doRenew(){
+    if(!chosenMin){ toast('추가할 시간을 선택해 주세요',true); return; }
+    if(DEMO){ done('renew', myRes.seat_id, new Date(Date.now()+chosenMin*60000).toISOString()); return; }
+    $("#mg").disabled=true;
+    try{ const res=await rpc('renew_reservation',{p_token:scanned.token,p_minutes:chosenMin});
+      if(res.ok){ done('renew', myRes.seat_id, res.end_at); } else { toast(res.error||'연장할 수 없어요',true); }
+    }catch(e){ toast('통신 오류',true); } finally{ $("#mg").disabled=false; }
+    await loadStatus();
+  }
+  async function doCheckout(){
+    if(DEMO){ done('checkout', myRes.seat_id, null); return; }
+    try{ const res=await rpc('checkout',{p_token:scanned.token});
+      if(res.ok){ done('checkout', myRes.seat_id, null); } else { toast(res.error||'퇴실 실패',true); closeModal(); }
+    }catch(e){ toast('통신 오류',true); } await loadStatus();
+  }
+
+  // A12: 미사용 좌석 신고
+  const REASONS=['장시간 자리 비움','예약 없이 짐만 있음','유의사항 위반','기타'];
+  function openReport(id){
+    $("#modal").innerHTML=`<h2>${id}번 좌석 신고</h2><p>신고 사유를 선택하세요</p>
+      <div class="reasons">${REASONS.map(r=>`<button data-r="${r}">${r}</button>`).join('')}</div>
+      <button class="linkbtn" id="mc">취소</button>`;
+    $("#ov").hidden=false;
+    document.querySelectorAll('.reasons button').forEach(b=>b.onclick=()=>submitReport(id,b.dataset.r));
+    $("#mc").onclick=()=>{ closeModal(); };
+  }
+  async function submitReport(seat, reason){
+    if(DEMO){ reportDone(seat); return; }
+    try{ const res=await rpc('report_seat',{p_seat:seat,p_reason:reason}); if(res.ok){ reportDone(seat); } else { toast('신고 실패',true); } }
+    catch(e){ toast('통신 오류',true); }
+  }
+  function reportDone(seat){
+    $("#modal").innerHTML=`<div class="em">🚩</div><h2>신고 접수됐어요</h2>
+      <p>${seat}번 좌석 · 사생회에 전달되었습니다.<br>확인 후 조치할게요. 감사합니다.</p>
+      <div class="btns"><button class="go" id="mok">확인</button></div>`;
+    $("#ov").hidden=false; $("#mok").onclick=goMain; clearTimeout(idleTimer); idleTimer=setTimeout(goMain,4500);
+  }
+
+  // ── 토스트 ──
+  let toT;
+  function toast(msg, err){ const t=$("#toast"); t.textContent=msg; t.className='toast show'+(err?' err':'');
+    clearTimeout(toT); toT=setTimeout(()=>t.className='toast'+(err?' err':''),2800); }
+  function setDot(ok){ $("#dot").textContent=ok?'●':'○'; $("#dot").style.color=ok?'#1f9254':'#e2564d'; }
+
+  // ── 시계 ──
+  const WD=['일','월','화','수','목','금','토'];
+  function tickClock(){ const d=new Date();
+    const hm=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');
+    const day=`${d.getMonth()+1}월 ${d.getDate()}일 (${WD[d.getDay()]})`;
+    const set=(id,v)=>{ const e=$(id); if(e) e.textContent=v; };
+    set("#clkM",hm); set("#dayM",day); set("#clkS",hm); set("#dayS",day); }
+  setInterval(tickClock,1000); tickClock();
+
+  // ── 폴링(현황 + 만료 반환) ──
+  async function loop(){ if(DEMO){ loadStatus(); setDot(true); return; } try{ await rpc('expire_due',{}); }catch(e){} await loadStatus(); setDot(true); }
+  loop(); setInterval(loop, 4000);
+
+  // ══ 관리자 모드 (D) — 우상단 모서리 5번 탭 → PIN ══
+  let adminPin=null, curTab='seats', tapCount=0, tapTimer=null;
+  $("#cornerTap").onclick=()=>{ tapCount++; clearTimeout(tapTimer); tapTimer=setTimeout(()=>tapCount=0,1600);
+    if(tapCount>=5){ tapCount=0; openPin(); } };
+
+  let pinBuf='';
+  function padNum(id){ return `<div class="numpad" id="${id}">${['1','2','3','4','5','6','7','8','9','','0','⌫'].map(k=>`<button data-k="${k}"${k===''?' style="visibility:hidden"':''}>${k}</button>`).join('')}</div>`; }
+  function openPin(){ pinBuf='';
+    $("#modal").innerHTML=`<h2>관리자 PIN</h2><p>4자리 PIN을 입력하세요</p><div class="pindots" id="pindots"></div>${padNum('numpad')}<button class="linkbtn" id="mc">취소</button>`;
+    $("#ov").hidden=false; drawPinDots();
+    document.querySelectorAll('#numpad button').forEach(b=>b.onclick=()=>{ const k=b.dataset.k;
+      if(k==='⌫') pinBuf=pinBuf.slice(0,-1); else if(k&&pinBuf.length<4) pinBuf+=k; drawPinDots();
+      if(pinBuf.length===4) verifyPin(pinBuf); });
+    $("#mc").onclick=closeModal;
+  }
+  function drawPinDots(){ const d=$("#pindots"); if(d) d.innerHTML=[0,1,2,3].map(i=>`<i class="${i<pinBuf.length?'on':''}"></i>`).join(''); }
+  async function verifyPin(pin){
+    if(DEMO){ if(pin==='0000'){ adminPin='0000'; openAdmin(); } else { toast('PIN 오류 (데모: 0000)',true); pinBuf=''; drawPinDots(); } return; }
+    try{ const ok=await rpc('admin_ok',{p_pin:pin}); if(ok===true){ adminPin=pin; openAdmin(); } else { toast('PIN이 올바르지 않아요',true); pinBuf=''; drawPinDots(); } }
+    catch(e){ toast('확인 오류',true); }
+  }
+  const A_TABS=[['seats','좌석 관리'],['settings','설정'],['notice','공지'],['stats','통계'],['backup','백업']];
+  function openAdmin(){ closeModal(); clearTimeout(idleTimer); $("#adminOv").hidden=false; adminTab('seats'); }
+  function closeAdmin(){ $("#adminOv").hidden=true; adminPin=null; goMain(); }
+  $("#aClose").onclick=closeAdmin;
+  function drawTabs(){ $("#atabs").innerHTML=A_TABS.map(([id,l])=>`<button data-t="${id}" class="${id===curTab?'on':''}">${l}</button>`).join('');
+    document.querySelectorAll('#atabs button').forEach(b=>b.onclick=()=>adminTab(b.dataset.t)); }
+  function adminTab(t){ curTab=t; drawTabs();
+    if(t==='seats') renderASeats(); else if(t==='settings') renderASettings(); else if(t==='notice') renderANotice(); else if(t==='stats') renderAStats(); else renderABackup(); }
+  function renderANotice(){
+    $("#abody").innerHTML=`<div class="asec"><h3>공지 작성</h3>
+      <input id="ntTitle" class="ninp" placeholder="제목 (선택)">
+      <textarea id="ntBody" class="ntxt" placeholder="공지 내용을 입력하세요"></textarea>
+      <button class="sbtn" id="ntPost" style="font-size:24px;padding:18px 34px;margin-top:8px">공지 올리기</button>
+      <span id="ntMsg" style="margin-left:16px;font-size:20px;color:var(--ink3)"></span></div>
+      <div class="asec"><h3>게시된 공지</h3><div id="ntList"><p class="amuted">불러오는 중…</p></div></div>`;
+    $("#ntPost").onclick=async()=>{ const t=$("#ntTitle").value.trim(), b=$("#ntBody").value.trim();
+      if(!b){ $("#ntMsg").textContent='내용을 입력하세요'; return; }
+      if(DEMO){ $("#ntMsg").textContent='데모에선 저장 안 됨'; return; }
+      try{ const r=await rpc('admin_post_notice',{p_pin:adminPin,p_title:t,p_body:b});
+        if(r&&r.ok){ $("#ntTitle").value=''; $("#ntBody").value=''; $("#ntMsg").textContent='올렸습니다 ✓'; loadNoticesA(); }
+        else $("#ntMsg").textContent=(r&&r.error)||'실패'; }catch(e){ $("#ntMsg").textContent='오류'; } };
+    loadNoticesA();
+  }
+  async function loadNoticesA(){ const box=$("#ntList"); if(!box) return;
+    if(DEMO){ box.innerHTML='<p class="amuted">데모 — 실제 목록 없음</p>'; return; }
+    try{ const rows=await rest('notices?select=id,title,body,created_at&active=eq.true&order=created_at.desc&limit=30');
+      box.innerHTML=(rows&&rows.length)? rows.map(n=>`<div class="rrow"><div><b>${n.title||'(제목 없음)'}</b><small>${new Date(n.created_at).toLocaleDateString('ko-KR')} · ${(n.body||'').slice(0,32)}</small></div><button data-id="${n.id}">삭제</button></div>`).join('') : '<p class="amuted">게시된 공지가 없습니다.</p>';
+      document.querySelectorAll('#ntList button[data-id]').forEach(b=>b.onclick=async()=>{ try{ await rpc('admin_del_notice',{p_pin:adminPin,p_id:b.dataset.id}); loadNoticesA(); }catch(e){} });
+    }catch(e){ box.innerHTML='<p class="amuted">불러오기 실패</p>'; }
+  }
+
+  function renderASeats(){
+    const rows=Object.keys(seatNodes).map(id=>{ const s=statusMap[id]||{};
+      const cls=s.is_blocked?'blk':s.occupied?'occ':'fr'; const st=s.is_blocked?'점검중':s.occupied?('이용중'+(s.sno_masked?' '+s.sno_masked:'')):'빈자리';
+      return `<div class="arow"><div class="aid ${cls}">${id}<small>${st}</small></div><div class="aacts">
+        ${s.occupied?`<button data-act="m10" data-id="${id}">−10분</button><button data-act="p10" data-id="${id}">+10분</button><button data-act="end" data-id="${id}">강제퇴실</button>`:''}
+        <button data-act="blk" data-id="${id}">${s.is_blocked?'점검 해제':'점검'}</button></div></div>`; }).join('');
+    $("#abody").innerHTML=`<div class="asec"><h3>좌석 현황·관리</h3><div class="alist">${rows}</div></div>
+      <div class="asec"><h3>좌석 신고 내역</h3><div id="areports"><p class="amuted">불러오는 중…</p></div></div>`;
+    document.querySelectorAll('#abody .aacts button').forEach(b=>b.onclick=()=>adminSeatAct(b.dataset.act,b.dataset.id));
+    loadAReports();
+  }
+  async function adminSeatAct(act,id){
+    if(DEMO){ const s=MOCK[id]||{};
+      if(act==='end') delete MOCK[id];
+      else if(act==='blk') MOCK[id]= s.is_blocked?{}:{is_blocked:true};
+      else if(s.occupied) MOCK[id]=Object.assign({},s,{end_at:new Date(new Date(s.end_at).getTime()+(act==='p10'?10:-10)*60000).toISOString()});
+      toast('반영됨 (데모)'); loadStatus(); renderASeats(); return; }
+    try{ let res; const cur=(statusMap[id]||{}).is_blocked;
+      if(act==='end') res=await rpc('admin_end',{p_pin:adminPin,p_seat:id});
+      else if(act==='blk') res=await rpc('admin_block',{p_pin:adminPin,p_seat:id,p_blocked:!cur});
+      else res=await rpc('admin_adjust',{p_pin:adminPin,p_seat:id,p_delta:act==='p10'?10:-10});
+      if(res&&res.ok){ toast('반영됐어요'); await loadStatus(); renderASeats(); } else toast((res&&res.error)||'실패',true);
+    }catch(e){ toast('오류',true); }
+  }
+  async function loadAReports(){
+    const box=$("#areports"); if(!box) return;
+    let rows=[];
+    if(DEMO){ rows=[{id:'d1',seat_id:'B8',reason:'짐만 있고 사람 없음',at:new Date(Date.now()-40*60000).toISOString()},{id:'d2',seat_id:'A2',reason:'장시간 자리 비움',at:new Date(Date.now()-3*3600000).toISOString()}]; }
+    else { try{ const res=await rpc('admin_reports',{p_pin:adminPin}); rows=((res&&res.rows)||[]).filter(r=>!r.resolved_at); }catch(e){ box.innerHTML='<p class="amuted">불러오기 실패</p>'; return; } }
+    box.innerHTML = rows.length ? rows.map(r=>`<div class="rrow"><div><b>${r.seat_id}</b> · ${r.reason}<small>${new Date(r.at).toLocaleString('ko-KR')}</small></div><button data-id="${r.id}">해결됨</button></div>`).join('') : '<p class="amuted">미해결 신고가 없습니다.</p>';
+    document.querySelectorAll('#areports button[data-id]').forEach(b=>b.onclick=async()=>{
+      if(DEMO){ toast('해결 처리 (데모)'); const row=b.closest('.rrow'); if(row) row.remove(); return; }
+      try{ await rpc('admin_resolve',{p_pin:adminPin,p_id:b.dataset.id}); loadAReports(); }catch(e){} });
+  }
+
+  let CFG={max_minutes:120,renew_window_min:30,idle_return_sec:60,renew_mode:'reset',prevent_dup:true,admin_pin:'0000'};
+  async function renderASettings(){
+    if(!DEMO){ try{ const c=await rest('app_config?select=*&id=eq.1'); if(c&&c[0]) CFG=Object.assign(CFG,c[0]); }catch(e){} }
+    const st=(k,label,desc,val,step,suf)=>`<div class="srow"><div class="sl">${label}<small>${desc}</small></div>
+      <div class="stepper"><button data-k="${k}" data-d="-${step}">−</button><div class="val">${val}${suf}</div><button data-k="${k}" data-d="${step}">+</button></div></div>`;
+    $("#abody").innerHTML=`<div class="asec"><h3>설정</h3>
+      ${st('max_minutes','최대 이용 시간','1회 예약 기준 최대',CFG.max_minutes,30,'분')}
+      ${st('renew_window_min','연장 가능 시점','종료 N분 전부터 연장 허용',CFG.renew_window_min,5,'분 전')}
+      ${st('idle_return_sec','무동작 자동 복귀','예약 화면에서 입력 없을 때',CFG.idle_return_sec,15,'초')}
+      <div class="srow"><div class="sl">연장 방식<small>reset=현재시각 기준 · add=남은시간+연장</small></div>
+        <div class="seg" id="segMode"><button data-v="reset" class="${CFG.renew_mode==='reset'?'on':''}">reset</button><button data-v="add" class="${CFG.renew_mode==='add'?'on':''}">add</button></div></div>
+      <div class="srow"><div class="sl">한 사람 한 자리<small>같은 회원 중복 예약 차단</small></div><button class="sw ${CFG.prevent_dup?'on':''}" id="swDup"></button></div>
+      <div class="srow"><div class="sl">관리자 PIN<small>현재 4자리</small></div><button class="sbtn" id="btnChPin">PIN 변경</button></div>
+    </div>`;
+    document.querySelectorAll('.stepper button').forEach(b=>b.onclick=()=>changeCfg(b.dataset.k,+b.dataset.d));
+    document.querySelectorAll('#segMode button').forEach(b=>b.onclick=()=>saveCfg({renew_mode:b.dataset.v}));
+    $("#swDup").onclick=()=>saveCfg({prevent_dup:!CFG.prevent_dup});
+    $("#btnChPin").onclick=changePin;
+  }
+  function changeCfg(k,d){ let v=(CFG[k]||0)+d;
+    if(k==='max_minutes') v=Math.max(30,Math.min(240,v));
+    if(k==='renew_window_min') v=Math.max(5,Math.min(60,v));
+    if(k==='idle_return_sec') v=Math.max(15,Math.min(180,v));
+    saveCfg({[k]:v}); }
+  async function saveCfg(patch){ CFG=Object.assign(CFG,patch);
+    if(!DEMO){ try{ await rpc('admin_config',{p_pin:adminPin,p_patch:patch}); }catch(e){ toast('저장 오류',true); } }
+    renderASettings(); }
+  function changePin(){ let nb='';
+    $("#modal").innerHTML=`<h2>새 관리자 PIN</h2><p>새 4자리 PIN을 입력하세요</p><div class="pindots" id="pd2"></div>${padNum('np2')}<button class="linkbtn" id="mc">취소</button>`;
+    $("#ov").hidden=false; const draw=()=>{ const d=$("#pd2"); if(d)d.innerHTML=[0,1,2,3].map(i=>`<i class="${i<nb.length?'on':''}"></i>`).join(''); }; draw();
+    document.querySelectorAll('#np2 button').forEach(b=>b.onclick=async()=>{ const k=b.dataset.k;
+      if(k==='⌫') nb=nb.slice(0,-1); else if(k&&nb.length<4) nb+=k; draw();
+      if(nb.length===4){ if(!DEMO){ try{ await rpc('admin_config',{p_pin:adminPin,p_patch:{admin_pin:nb}}); adminPin=nb; }catch(e){} } CFG.admin_pin=nb; toast('PIN이 변경됐어요'); closeModal(); } });
+    $("#mc").onclick=()=>{ closeModal(); };
+  }
+  async function renderAStats(){
+    let s={today:0,week:0,total:0,hourly:[],perseat:[]};
+    if(DEMO){ s={today:14,week:63,total:238,
+      hourly:Array.from({length:24},(_,h)=>({h,n:h<7?0:Math.max(0,Math.round(7*Math.sin((h-6)/16*Math.PI)+((h>=13&&h<=20)?6:0)))})),
+      perseat:[{seat:'B5',n:41},{seat:'A3',n:33},{seat:'B2',n:28},{seat:'C1',n:22},{seat:'A1',n:19},{seat:'B7',n:15}]}; }
+    else { try{ const r=await rpc('admin_stats',{p_pin:adminPin}); if(r&&r.ok) s=r; }catch(e){} }
+    const maxH=Math.max(1,...s.hourly.map(x=>x.n));
+    const bars=Array.from({length:24},(_,h)=>{ const n=(s.hourly.find(x=>x.h===h)||{}).n||0; return `<div class="bar" style="height:${Math.round(n/maxH*100)}%"></div>`; }).join('');
+    const seatsTop=(s.perseat||[]).slice(0,8).map(x=>`<div class="rrow" style="border:0;padding:12px 4px"><div><b>${x.seat}</b> 구역 좌석</div><div style="font-weight:800;color:var(--tint-d)">${x.n}회</div></div>`).join('')||'<p class="amuted">기록 없음</p>';
+    $("#abody").innerHTML=`<div class="asec"><h3>이용 통계</h3>
+      <div class="acards"><div class="acard"><div class="n tnum">${s.today}</div><div class="l">오늘 예약</div></div>
+        <div class="acard"><div class="n tnum">${s.week}</div><div class="l">이번 주</div></div>
+        <div class="acard"><div class="n tnum">${s.total}</div><div class="l">누적</div></div></div></div>
+      <div class="asec"><h3>시간대별 예약 (혼잡도)</h3><div class="bars">${bars}</div>
+        <div class="bl"><span>0시</span><span>6시</span><span>12시</span><span>18시</span><span>23시</span></div></div>
+      <div class="asec"><h3>좌석별 이용 횟수</h3>${seatsTop}</div>`;
+  }
+  async function renderABackup(){
+    $("#abody").innerHTML=`<div class="asec"><h3>데이터 백업</h3>
+      <p style="font-size:22px;color:var(--ink2);line-height:1.5;margin-bottom:24px">예약·신고·설정 전체를 JSON 파일로 내려받습니다. (클라우드 원본은 Supabase에 항상 보관됩니다.)</p>
+      <button class="sbtn" id="btnExport" style="font-size:26px;padding:20px 36px">JSON 내보내기</button>
+      <div id="expmsg" style="margin-top:18px;font-size:20px;color:var(--ink3)"></div></div>`;
+    $("#btnExport").onclick=async()=>{
+      if(DEMO){ $("#expmsg").textContent='데모에서는 실제 파일이 생성되지 않습니다.'; return; }
+      try{ const r=await rpc('admin_export',{p_pin:adminPin});
+        const blob=new Blob([JSON.stringify(r,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob);
+        const a=document.createElement('a'); a.href=url; a.download='greennarae-backup-'+new Date().toISOString().slice(0,10)+'.json'; a.click(); URL.revokeObjectURL(url);
+        $("#expmsg").textContent='내보냈습니다.';
+      }catch(e){ $("#expmsg").textContent='내보내기 실패'; } };
+  }
+
+  // ── 데모: 리더기가 없으니 스캔 프레임/버튼으로 스캔을 흉내낸다 ──
+  if(DEMO){
+    const sim=(withRes)=>{ scanned={token:'demo',user_id:'demo',name:'이태규',student_no:'202002502'}; bumpIdle(60000);
+      if(withRes) offerCheckout('demo'); else goSeats('pick'); };
+    document.querySelector('.scanframe').style.cursor='pointer';
+    document.querySelector('.scanframe').onclick=()=>{ if(screen==='scan') sim(false); };
+    const wrap=document.createElement('div'); wrap.style.cssText='display:flex;flex-direction:column;gap:16px;margin-top:26px';
+    const mk=(txt,fn)=>{ const b=document.createElement('button'); b.textContent=txt;
+      b.style.cssText='background:#fff;border:2px dashed var(--tint);border-radius:22px;padding:22px 44px;font-size:24px;font-weight:700;color:var(--tint-d);font-family:inherit'; b.onclick=fn; return b; };
+    wrap.appendChild(mk('🔧 (테스트) 스캔됨 → 좌석 선택', ()=>sim(false)));
+    wrap.appendChild(mk('🔧 (테스트) 이용 중 회원으로 스캔 → 예약정보', ()=>sim(true)));
+    document.querySelector('#scScan .body').appendChild(wrap);
+  }
+
+  // ── ?test: QR 리더기 없이 앱에서 복사한 토큰을 직접 입력해 스캔 흉내 ──
+  if(TEST){
+    const wrap=document.createElement('div'); wrap.style.cssText='display:flex;gap:12px;margin-top:26px;width:min(760px,84%)';
+    const inp=document.createElement('input'); inp.placeholder='앱(?test)에서 복사한 QR 토큰 붙여넣기';
+    inp.style.cssText='flex:1;padding:20px;border:2px solid var(--sep);border-radius:16px;font-size:19px;font-family:var(--mono)';
+    inp.addEventListener('keydown',e=>{ e.stopPropagation(); if(e.key==='Enter'){ e.preventDefault(); go(); } });
+    const btn=document.createElement('button'); btn.textContent='입력';
+    btn.style.cssText='padding:20px 40px;border:0;border-radius:16px;background:var(--tint);color:#fff;font-size:22px;font-weight:700;font-family:inherit';
+    function go(){ const v=inp.value.trim(); if(v && screen==='scan') onScan(v); }
+    btn.onclick=go;
+    wrap.appendChild(inp); wrap.appendChild(btn);
+    document.querySelector('#scScan .body').appendChild(wrap);
+  }
+})();
+</script>
+</body>
+</html>
