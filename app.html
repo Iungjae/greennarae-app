@@ -180,6 +180,19 @@
   .repbtn{flex:0 0 auto;background:var(--tint);border:0;border-radius:11px;padding:11px 16px;font-size:14px;font-weight:700;color:#fff;font-family:inherit}
   .repbtn:disabled{opacity:.5}
   .repdone{flex:0 0 auto;color:var(--tint-d);font-size:22px;font-weight:800}
+  /* 비밀번호 초기화 */
+  .rpwrap{flex:1;min-height:0;overflow-y:auto;padding:10px 16px calc(20px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px}
+  .rphint2{font-size:14px;color:var(--ink2);line-height:1.6;text-align:center;padding:4px 6px} .rphint2 b{color:var(--tint-d)}
+  .rpsearch{display:flex;gap:8px}
+  .rpsearch .aci{flex:1}
+  .rpsbtn{width:auto;flex:0 0 auto;padding:0 22px}
+  .rpitem{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--card);border-radius:14px;padding:14px 16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .rpinfo{min-width:0}
+  .rpname{font-size:16px;font-weight:800}
+  .rpsub{font-size:13px;color:var(--ink3);margin-top:3px} .rpsub .mono{color:var(--tint-d);font-weight:700}
+  .rpbtn{flex:0 0 auto;background:var(--red-bg);border:0;border-radius:11px;padding:11px 16px;font-size:14px;font-weight:700;color:var(--red);font-family:inherit}
+  .tempcode{font-size:36px;font-weight:800;letter-spacing:.14em;color:var(--tint-d);background:var(--sub);border-radius:14px;padding:16px;margin:14px 0;font-variant-numeric:tabular-nums;-webkit-user-select:all;user-select:all}
+  .rpnote{font-size:13px;color:var(--ink2);line-height:1.6}
   /* 로그인/가입 */
   .auth{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;padding:0 20px}
   .authbox{margin:auto 0;width:100%;max-width:380px;align-self:center;padding:26px 0}
@@ -434,7 +447,8 @@
   function openMenu(){
     const admin = IS_ADMIN ? `<div class="sh adm">관리자</div>
       <button class="mi" id="mANotice">공지 관리</button>
-      <button class="mi" id="mAReport">민원 접수함${unresolvedN?`<span class="mibadge">${unresolvedN}</span>`:''}</button>` : '';
+      <button class="mi" id="mAReport">민원 접수함${unresolvedN?`<span class="mibadge">${unresolvedN}</span>`:''}</button>
+      <button class="mi" id="mResetPw">비밀번호 초기화</button>` : '';
     showOv(`<div class="sheet"><div class="sh">메뉴</div>
       ${installAvailable()?'<button class="mi hl" id="mInstall">📲 앱 설치</button>':''}${admin}
       ${IS_ADMIN?'<div class="sh adm">일반</div>':''}
@@ -448,6 +462,7 @@
     if(IS_ADMIN){
       $("#mANotice").onclick=()=>{ hideOv(); screenNoticeAdmin(); };
       $("#mAReport").onclick=()=>{ hideOv(); screenReportsAdmin(); };
+      $("#mResetPw").onclick=()=>{ hideOv(); screenResetPw(); };
     }
     $("#mHist").onclick=()=>{ hideOv(); screenHistory(); };
     $("#mReport").onclick=()=>{ hideOv(); screenReport(); };
@@ -677,6 +692,50 @@
     el.querySelectorAll('.repbtn').forEach(btn=>btn.onclick=async()=>{ btn.disabled=true;
       try{ const r=await rpc('me_resolve',{p_id:btn.dataset.id}); if(okOf(r)){ toast('처리했어요'); const rows2=await pollReports(true); renderReportsAdmin(rows2); } else { btn.disabled=false; toast('처리 실패'); } }
       catch(e){ btn.disabled=false; toast('처리 실패'); } });
+  }
+
+  // ── 비밀번호 초기화(관리자): 학번 검색 → 임시 비번 (계정/열품타 유지) ──
+  function screenResetPw(){
+    clearTimers();
+    screen.innerHTML=`<div class="hd"><button class="back" id="bk">‹ 뒤로</button><h1>비밀번호 초기화</h1></div>
+      <div id="rplist" class="rpwrap">
+        <p class="rphint2">민원 전화로 요청받은 <b>학번</b>을 검색해 임시 비밀번호로 초기화하세요.<br>이용 기록(<b>열품타</b>)은 그대로 유지됩니다.</p>
+        <div class="rpsearch"><input class="aci" id="rpq" placeholder="학번 또는 이름 검색" inputmode="search"><button class="abtn rpsbtn" id="rpgo">검색</button></div>
+        <div id="rpresults"></div>
+      </div>`;
+    $("#bk").onclick=screenHome;
+    const doSearch=async()=>{
+      const q=$("#rpq").value.trim(); const el=$("#rpresults"); if(!el) return;
+      if(!q){ el.innerHTML=''; return; }
+      el.innerHTML='<p class="empty" style="padding:14px">검색 중…</p>';
+      let r; try{ r=await rpc('me_find_member',{p_q:q}); }catch(e){ el.innerHTML='<p class="empty" style="padding:14px">검색 실패</p>'; return; }
+      const rows=(r&&r.rows)||[];
+      el.innerHTML = rows.length ? rows.map(m=>`<div class="rpitem">
+          <div class="rpinfo"><div class="rpname">${esc(m.name||'—')}</div><div class="rpsub"><span class="mono">${esc(m.student_no)}</span> · 이용 ${m.uses||0}회</div></div>
+          <button class="rpbtn" data-sno="${esc(m.student_no)}" data-name="${esc(m.name||'')}">초기화</button></div>`).join('')
+        : '<p class="empty" style="padding:16px">검색 결과가 없어요</p>';
+      el.querySelectorAll('.rpbtn').forEach(b=>b.onclick=()=>askReset(b.dataset.sno, b.dataset.name));
+    };
+    $("#rpgo").onclick=doSearch;
+    $("#rpq").addEventListener('keydown',e=>{ if(e.key==='Enter') doSearch(); });
+    setTimeout(()=>{ const i=$("#rpq"); if(i) i.focus(); }, 120);
+  }
+  function genTempPw(){ return String(Math.floor(100000+Math.random()*900000)); }   // 6자리 임시
+  function askReset(sno, name){
+    confirmSheet('비밀번호 초기화', `${esc(name||sno)}님(${esc(sno)})의 비밀번호를 임시로 초기화할까요?<br><b>이용 기록(열품타)은 그대로 유지</b>됩니다.`, '초기화', false, async()=>{
+      hideOv(); const temp=genTempPw();
+      try{ const r=await rpc('me_reset_pw',{p_student_no:sno, p_newpw:temp});
+        if(okOf(r)) showTempPw(sno, name, temp); else toast(errOf(r)||'초기화 실패');
+      }catch(e){ toast('초기화 실패'); }
+    });
+  }
+  function showTempPw(sno, name, temp){
+    showOv(`<div class="confirm"><h3>초기화 완료</h3>
+      <p style="line-height:1.6">${esc(name||sno)}님(<span class="mono">${esc(sno)}</span>)의 임시 비밀번호</p>
+      <div class="tempcode">${temp}</div>
+      <p class="rpnote">이 임시 비밀번호를 회원에게 알려주세요.<br>회원은 로그인 후 <b>메뉴 → 비밀번호 변경</b>에서 바꾸면 됩니다.</p>
+      <div class="cb"><button class="ok" id="tok">확인</button></div></div>`);
+    $("#tok").onclick=hideOv;
   }
 
   // ── 푸시(Phase 2) ──
