@@ -253,7 +253,7 @@
 <script>
   const SUPABASE_URL = "https://qpatiluzrimxdhyffcgm.supabase.co";     // https://xxxx.supabase.co
   const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwYXRpbHV6cmlteGRoeWZmY2dtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0MDQ3OTcsImV4cCI6MjEwMzk4MDc5N30.TTbOIJ2bA232XGergCQhaM1TNgAP7-TCCJWN-m_idjY";     // anon public 키
-  const VAPID_PUBLIC = "";     // (푸시용, Phase 2)
+  const VAPID_PUBLIC = "BN82wGoxVOAW7tBLFQgNkoCLNTBbK8zsbyHO-pkDiPoJXR2ch5hJF1ljmwNaTRQNvBiUkxzDZx1BWBV78qqrc6c";   // 퇴실 30분 전 알림(웹푸시)
   const DEMO         = false;  // true = 백엔드 없이 화면 미리보기(가짜 데이터)
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
@@ -395,6 +395,7 @@
         </div>
         <button class="leave" id="bout">퇴실하기</button>`;
       $("#bout").onclick=doCheckout;
+      ensurePush();   // 이용 중이면 퇴실 30분 전 알림 자동 구독(토글 없음)
     } else {
       box.innerHTML=`<div class="noseat"><div class="a">이용 중인 좌석이 없습니다</div>
         <div class="b">독서실 키오스크에서<br>QR을 스캔해 예약하세요</div></div>`;
@@ -738,20 +739,24 @@
     $("#tok").onclick=hideOv;
   }
 
-  // ── 푸시(Phase 2) ──
-  function pushState(){ if(!VAPID_PUBLIC) return '퇴실 30분 전 알림 (준비 중)';
-    if(!('serviceWorker'in navigator)||!('PushManager'in window)) return '이 기기는 알림 미지원';
-    return (typeof Notification!=='undefined'&&Notification.permission==='granted')?'퇴실 30분 전 알림 · 켜짐':'퇴실 30분 전 알림 받기'; }
-  async function togglePush(){ const set=t=>{const e=$("#pushtxt"); if(e)e.textContent=t;};
-    if(!VAPID_PUBLIC){ toast('알림 기능은 곧 제공됩니다'); return; }
-    if(!('serviceWorker'in navigator)||!('PushManager'in window)){ toast('이 기기는 알림을 지원하지 않아요'); return; }
-    try{ const reg=await navigator.serviceWorker.register('sw.js'); const perm=await Notification.requestPermission();
-      if(perm!=='granted'){ toast('알림 권한이 꺼져 있어요'); set('퇴실 30분 전 알림 받기'); return; }
-      const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64(VAPID_PUBLIC)});
-      await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions`,{method:'POST',headers:{...authH(),Prefer:'resolution=merge-duplicates'},
-        body:JSON.stringify({user_id:session.user.id,endpoint:sub.endpoint,sub})});
-      set('퇴실 30분 전 알림 · 켜짐'); toast('알림을 켰어요');
-    }catch(e){ toast('알림 설정 실패'); } }
+  // ── 퇴실 30분 전 알림: 이용 중이면 자동 구독(토글 없음). 권한은 OS 규칙상 한 번은 사용자가 허용해야 함 ──
+  let pushDone=false;
+  async function ensurePush(){
+    if(pushDone || DEMO || !VAPID_PUBLIC || !session) return;
+    if(!('serviceWorker'in navigator) || !('PushManager'in window) || typeof Notification==='undefined') return;
+    try{
+      let perm=Notification.permission;
+      if(perm==='default') perm=await Notification.requestPermission();
+      if(perm!=='granted') return;   // 거부 시 다음 기회에 다시 시도(pushDone 안 세움)
+      const reg=await navigator.serviceWorker.ready;
+      let sub=await reg.pushManager.getSubscription();
+      if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:urlB64(VAPID_PUBLIC)});
+      const r=await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions`,{method:'POST',
+        headers:{...authH(),Prefer:'resolution=merge-duplicates'},
+        body:JSON.stringify({user_id:session.user.id, endpoint:sub.endpoint, sub})});
+      if(r.ok) pushDone=true;
+    }catch(_){}
+  }
   function urlB64(s){ const p='='.repeat((4-s.length%4)%4); const b=(s+p).replace(/-/g,'+').replace(/_/g,'/'); const raw=atob(b); return Uint8Array.from([...raw].map(c=>c.charCodeAt(0))); }
 
   // ── 로그인 / 가입 (학번 + 비밀번호) ──
