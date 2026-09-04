@@ -205,6 +205,10 @@
   .chk .box::after{content:'';width:5.5px;height:10px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg) scale(0);transition:transform .15s;margin-top:-2px}
   .chk input:checked + .box{background:var(--tint);border-color:var(--tint)}
   .chk input:checked + .box::after{transform:rotate(45deg) scale(1)}
+  /* 앱 설치 버튼 */
+  .install{display:block;width:100%;height:48px;margin-top:14px;border:1.5px solid var(--tint);border-radius:13px;background:var(--tint-bg);color:var(--tint-d);font-size:15px;font-weight:700;font-family:inherit;-webkit-tap-highlight-color:transparent}
+  .install:active{background:#d9efe3}
+  .sheet .mi.hl{color:var(--tint-d);font-weight:800}
   .msg{margin-top:14px;padding:11px 14px;border-radius:11px;font-size:13.5px;text-align:center}
   .msg.err{background:var(--red-bg);color:#c0362d} .msg.ok{background:var(--tint-bg);color:var(--tint-d)}
   /* 오버레이 */
@@ -431,7 +435,8 @@
     const admin = IS_ADMIN ? `<div class="sh adm">관리자</div>
       <button class="mi" id="mANotice">공지 관리</button>
       <button class="mi" id="mAReport">민원 접수함${unresolvedN?`<span class="mibadge">${unresolvedN}</span>`:''}</button>` : '';
-    showOv(`<div class="sheet"><div class="sh">메뉴</div>${admin}
+    showOv(`<div class="sheet"><div class="sh">메뉴</div>
+      ${installAvailable()?'<button class="mi hl" id="mInstall">📲 앱 설치</button>':''}${admin}
       ${IS_ADMIN?'<div class="sh adm">일반</div>':''}
       <button class="mi" id="mHist">내 이용 내역</button>
       <button class="mi" id="mReport">좌석 신고</button>
@@ -439,6 +444,7 @@
       <button class="mi" id="mContact">문의하기</button>
       <button class="mi" id="mPw">비밀번호 변경</button>
       <button class="mi dan" id="mOut">로그아웃</button></div>`);
+    if($("#mInstall")) $("#mInstall").onclick=()=>{ hideOv(); doInstall(); };
     if(IS_ADMIN){
       $("#mANotice").onclick=()=>{ hideOv(); screenNoticeAdmin(); };
       $("#mAReport").onclick=()=>{ hideOv(); screenReportsAdmin(); };
@@ -707,12 +713,14 @@
       ${!signup?`<label class="chk"><input type="checkbox" id="autock" ${autoLogin?'checked':''}><span class="box"></span>자동 로그인</label>`:''}
       <button class="btn" id="go">${signup?'가입하고 시작':'로그인'}</button>
       <button class="link" id="swap">${signup?'이미 계정이 있어요 · 로그인':'계정이 없나요? 회원가입'}</button>
+      <button class="install" id="installBtn" hidden>📲 앱 설치</button>
       ${signup?`<p class="note">가입 시 학번·이름 수집·이용에 동의하게 됩니다.<br>좌석 예약·알림 목적이며 탈퇴 시 파기됩니다.</p>`:''}
       <div id="msg"></div></div></div>`;
     const upd=()=>{ const ok=$("#sno").value.trim() && $("#pw").value.trim().length>0 && (!signup || $("#nm").value.trim()); $("#go").classList.toggle('on',!!ok); };
     screen.querySelectorAll('.group input').forEach(i=>i.oninput=upd); upd();
     $("#swap").onclick=()=>{ mode=signup?'login':'signup'; screenAuth(); };
     $("#go").onclick=submitAuth;
+    $("#installBtn").onclick=doInstall; showInstallBtn();
   }
   async function submitAuth(){
     const sno=$("#sno").value.trim(), pw=$("#pw").value;
@@ -757,6 +765,20 @@
 
   // 서비스워커 등록(PWA 설치/오프라인) — 모든 사용자
   if('serviceWorker'in navigator && !DEMO){ try{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }catch(_){} }
+
+  // ── PWA 앱 설치 ──
+  let deferredPrompt=null;
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+  function isStandalone(){ try{ return matchMedia('(display-mode: standalone)').matches || navigator.standalone===true; }catch(_){ return false; } }
+  function installAvailable(){ return !isStandalone() && (!!deferredPrompt || isIOS); }
+  function showInstallBtn(){ const b=$("#installBtn"); if(b) b.hidden = !installAvailable(); }
+  window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); deferredPrompt=e; showInstallBtn(); });
+  window.addEventListener('appinstalled', ()=>{ deferredPrompt=null; showInstallBtn(); try{toast('앱이 설치됐어요 🌿');}catch(_){} });
+  async function doInstall(){
+    if(deferredPrompt){ deferredPrompt.prompt(); try{ await deferredPrompt.userChoice; }catch(_){} deferredPrompt=null; showInstallBtn(); return; }
+    if(isIOS){ showOv(`<div class="confirm"><h3>홈 화면에 추가</h3><p style="text-align:left;line-height:1.75">아이폰은 <b>Safari</b>에서 설치해요.<br>① 하단 <b>공유</b> 아이콘 누르기<br>② <b>홈 화면에 추가</b> 선택</p><div class="cb"><button class="ok" id="iok">확인</button></div></div>`); $("#iok").onclick=hideOv; return; }
+    showOv(`<div class="confirm"><h3>앱 설치</h3><p style="text-align:left;line-height:1.75">브라우저 메뉴(<b>⋮</b>)에서<br><b>"앱 설치"</b> 또는 <b>"홈 화면에 추가"</b>를 눌러주세요.<br><br>안 보이면 페이지를 새로고침한 뒤 다시 시도하세요.</p><div class="cb"><button class="ok" id="iok">확인</button></div></div>`); $("#iok").onclick=hideOv;
+  }
 
   // ── 시작 ── (자동 로그인: 세션 있으면 만료 확인 → 필요시 토큰 갱신 후 홈)
   (async function boot(){
