@@ -342,7 +342,8 @@
     if(!Array.isArray(p)) p=await rest(`profiles?select=name,student_no&id=eq.${session.user.id}`);                 // 컬럼 없으면(관리자 SQL 전) 폴백
     return Array.isArray(p)?p[0]:null; }
   async function fetchResv(){ if(DEMO) return demoOut?null:{seat_id:'B5',start_at:new Date(Date.now()-54*60000).toISOString(),end_at:new Date(Date.now()+66*60000).toISOString()};
-    const r=await rest(`reservations?select=seat_id,start_at,end_at&user_id=eq.${session.user.id}&status=eq.active&order=start_at.desc&limit=1`); return r&&r[0]; }
+    const nowIso=new Date().toISOString();   // 종료시각이 지난(만료) 예약은 제외 → 시간 다 되면 '이용 중 좌석' 자동으로 사라짐
+    const r=await rest(`reservations?select=seat_id,start_at,end_at&user_id=eq.${session.user.id}&status=eq.active&end_at=gt.${nowIso}&order=start_at.desc&limit=1`); return r&&r[0]; }
   async function fetchZones(){ if(DEMO) return [{zone:'A',total:8,used:3,blocked:0,remain:5},{zone:'B',total:12,used:7,blocked:1,remain:4},{zone:'C',total:4,used:1,blocked:0,remain:3}];
     const rows=await rest(`seat_status?select=zone,occupied,is_blocked`); return aggZones(rows); }
   function aggZones(rows){ const Z={A:{t:0,u:0,b:0},B:{t:0,u:0,b:0},C:{t:0,u:0,b:0}};
