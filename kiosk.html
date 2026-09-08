@@ -363,22 +363,25 @@
   document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') keepAwake(); });
   keepAwake();
 
-  // ── 야간 화면 끄기(01~07시, 밝기0 오버레이) + 예약 완료 사운드 ──
-  let nightWakeUntil=0, actx=null;
+  // ── 야간 화면 끄기(01~07시, 밝기0 오버레이) + 예약 완료 사운드(pay.wav) ──
+  let nightWakeUntil=0, actx=null, payBuf=null, payLoading=false;
   function nightActive(){ if(!CFG.night_off) return false; const h=new Date().getHours(); return h>=1 && h<7 && Date.now()>nightWakeUntil; }
   function updateNight(){ const el=$("#nightOff"); if(el) el.hidden=!nightActive(); }
   setInterval(updateNight, 15000);
-  function playDing(){ try{
-      actx = actx || new (window.AudioContext||window.webkitAudioContext)();
-      if(actx.state==='suspended') actx.resume();
+  function ensureAudio(){ try{ actx = actx || new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended') actx.resume(); }catch(e){} return actx; }
+  function loadPay(){ if(payBuf||payLoading||!actx) return; payLoading=true;
+    fetch('pay.wav').then(r=>r.arrayBuffer()).then(a=>actx.decodeAudioData(a)).then(b=>{ payBuf=b; }).catch(()=>{ payLoading=false; }); }
+  function playDing(){ try{ ensureAudio(); if(!actx) return;
+      if(payBuf){ const s=actx.createBufferSource(); s.buffer=payBuf; const g=actx.createGain(); g.gain.value=0.9; s.connect(g); g.connect(actx.destination); s.start(); return; }
+      // 폴백: pay.wav 미로딩 시 합성 차임
       const t0=actx.currentTime;
       [[880,0],[1318.51,0.11]].forEach(([f,dt])=>{ const o=actx.createOscillator(), g=actx.createGain();
         o.type='sine'; o.frequency.value=f; o.connect(g); g.connect(actx.destination);
         g.gain.setValueAtTime(0.0001,t0+dt); g.gain.exponentialRampToValueAtTime(0.32,t0+dt+0.02);
         g.gain.exponentialRampToValueAtTime(0.0001,t0+dt+0.38); o.start(t0+dt); o.stop(t0+dt+0.42); }); }catch(e){} }
-  // 첫 터치에 오디오 잠금 해제 + 야간이면 화면 잠시 깨우기(90초)
+  // 첫 터치에 오디오 잠금 해제 + pay.wav 사전 로드 + 야간이면 화면 잠시 깨우기(90초)
   document.addEventListener('pointerdown', ()=>{
-    try{ actx = actx || new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended') actx.resume(); }catch(e){}
+    ensureAudio(); loadPay();
     if(CFG.night_off){ const h=new Date().getHours(); if(h>=1 && h<7){ nightWakeUntil=Date.now()+90000; updateNight(); } }
   }, true);
 
