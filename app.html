@@ -607,6 +607,7 @@
     showOv(`<div class="confirm" style="text-align:center"><div style="font-size:50px;margin-bottom:6px">🌿</div>
       <h3>문의하기</h3><p style="margin-bottom:18px">한신대학교 생활관 사무실</p>
       <div class="contact"><span>전화 문의</span><b class="mono">031-379-0174</b></div>
+      <div class="contact"><span>카카오톡</span><b>사생회 카카오 채널</b></div>
       <button class="linkbtn" id="cc">닫기</button></div>`);
     $("#cc").onclick=hideOv;
   }
@@ -656,7 +657,7 @@
     toast(`새 민원 ${fresh.length}건 접수`);
     try{ if(typeof Notification!=='undefined' && Notification.permission==='granted'){
       if('serviceWorker'in navigator && navigator.serviceWorker.ready){
-        navigator.serviceWorker.ready.then(reg=>reg.showNotification(title,{body,icon:'icon.svg',badge:'icon.svg',tag:'gn-report',renotify:true})).catch(()=>{try{new Notification(title,{body});}catch(_){}});
+        navigator.serviceWorker.ready.then(reg=>reg.showNotification(title,{body,icon:'icon-192.png',badge:'badge.png',tag:'gn-report',renotify:true})).catch(()=>{try{new Notification(title,{body});}catch(_){}});
       } else { new Notification(title,{body}); }
     }}catch(_){}
   }
@@ -839,18 +840,22 @@
       ${!signup?`<label class="chk"><input type="checkbox" id="autock" ${autoLogin?'checked':''}><span class="box"></span>자동 로그인</label>`:''}
       <button class="btn" id="go">${signup?'가입하고 시작':'로그인'}</button>
       <button class="link" id="swap">${signup?'이미 계정이 있어요 · 로그인':'계정이 없나요? 회원가입'}</button>
+      ${!signup?`<button class="link" id="pwreset" style="margin-top:2px;font-size:14px;color:var(--ink3)">비밀번호 초기화</button>`:''}
       ${signup?`<p class="note">가입 시 학번·이름 수집·이용에 동의하게 됩니다.<br>좌석 예약·알림 목적이며 탈퇴 시 파기됩니다.</p>`:''}
       <div id="msg"></div></div></div>`;
     const upd=()=>{ const ok=$("#sno").value.trim() && $("#pw").value.trim().length>0 && (!signup || $("#nm").value.trim()); $("#go").classList.toggle('on',!!ok); };
     screen.querySelectorAll('.group input').forEach(i=>i.oninput=upd); upd();
     $("#swap").onclick=()=>{ mode=signup?'login':'signup'; screenAuth(); };
+    if($("#pwreset")) $("#pwreset").onclick=openContact;
     $("#go").onclick=submitAuth;
   }
+  function validSno(s){ if(!/^\d{9}$/.test(s)) return false; const y=+s.slice(0,4); return y>=2017 && y<=new Date().getFullYear(); }   // 학번: 9자리, 앞4=년도(2017~올해), 뒤5=숫자
   async function submitAuth(){
     const sno=$("#sno").value.trim(), pw=$("#pw").value;
     if(!sno){ msg('학번을 입력하세요'); return; }
     if(pw.length<6){ msg('비밀번호는 6자 이상이어야 해요'); return; }
     if(mode==='signup' && !$("#nm").value.trim()){ msg('이름을 입력하세요'); return; }
+    if(mode==='signup' && !validSno(sno)){ msg('유효하지 않은 학번이에요'); return; }
     if(DEMO){ demoProfile={student_no:sno,name:(mode==='signup'?$("#nm").value.trim():demoProfile.name)};
       saveSession({access_token:'demo',user:{id:'demo'}}); enter(); return; }
     $("#go").disabled=true;
