@@ -691,7 +691,7 @@
 
   let CFG={max_minutes:120,renew_window_min:30,idle_return_sec:60,renew_mode:'reset',prevent_dup:true,admin_pin:'0000'};
   async function renderASettings(){
-    if(!DEMO){ try{ const c=await rest('app_config?select=*&id=eq.1'); if(c&&c[0]) CFG=Object.assign(CFG,c[0]); }catch(e){} }
+    if(!DEMO){ try{ const c=await rest('app_config?select=id,max_minutes,renew_window_min,renew_mode,idle_return_sec,prevent_dup&id=eq.1'); if(c&&c[0]) CFG=Object.assign(CFG,c[0]); }catch(e){} }   // admin_pin 등 민감 컬럼 제외
     const st=(k,label,desc,val,step,suf)=>`<div class="srow"><div class="sl">${label}<small>${desc}</small></div>
       <div class="stepper"><button data-k="${k}" data-d="-${step}">−</button><div class="val">${val}${suf}</div><button data-k="${k}" data-d="${step}">+</button></div></div>`;
     $("#abody").innerHTML=`<div class="asec"><h3>설정</h3>
