@@ -22,6 +22,7 @@
     user-select:none;-webkit-user-select:none;touch-action:manipulation;display:flex;align-items:center;justify-content:center}
   /* 1080×1920 고정 스테이지 — 뷰포트에 맞춰 스케일 */
   #stage{width:1080px;height:1920px;background:var(--bg);position:relative;overflow:hidden;transform-origin:center center;flex:0 0 auto}
+  #nightOff{position:fixed;inset:0;background:#000;z-index:300}   /* 야간 화면 끄기: 전체 검정(전원 유지) */
   .screen{position:absolute;inset:0;display:flex;flex-direction:column;padding:56px 52px 40px}
   .tnum,.mono{font-variant-numeric:tabular-nums}
   .mono{font-family:var(--mono)}
@@ -341,6 +342,7 @@
     <div class="abody" id="abody"></div>
   </div>
 </div>
+<div id="nightOff" hidden></div>
 
 <script>
 (function(){
@@ -360,6 +362,25 @@
   async function keepAwake(){ try{ if('wakeLock' in navigator){ wakeLock=await navigator.wakeLock.request('screen'); } }catch(e){} }
   document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') keepAwake(); });
   keepAwake();
+
+  // ── 야간 화면 끄기(01~07시, 밝기0 오버레이) + 예약 완료 사운드 ──
+  let nightWakeUntil=0, actx=null;
+  function nightActive(){ if(!CFG.night_off) return false; const h=new Date().getHours(); return h>=1 && h<7 && Date.now()>nightWakeUntil; }
+  function updateNight(){ const el=$("#nightOff"); if(el) el.hidden=!nightActive(); }
+  setInterval(updateNight, 15000);
+  function playDing(){ try{
+      actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+      if(actx.state==='suspended') actx.resume();
+      const t0=actx.currentTime;
+      [[880,0],[1318.51,0.11]].forEach(([f,dt])=>{ const o=actx.createOscillator(), g=actx.createGain();
+        o.type='sine'; o.frequency.value=f; o.connect(g); g.connect(actx.destination);
+        g.gain.setValueAtTime(0.0001,t0+dt); g.gain.exponentialRampToValueAtTime(0.32,t0+dt+0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001,t0+dt+0.38); o.start(t0+dt); o.stop(t0+dt+0.42); }); }catch(e){} }
+  // 첫 터치에 오디오 잠금 해제 + 야간이면 화면 잠시 깨우기(90초)
+  document.addEventListener('pointerdown', ()=>{
+    try{ actx = actx || new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended') actx.resume(); }catch(e){}
+    if(CFG.night_off){ const h=new Date().getHours(); if(h>=1 && h<7){ nightWakeUntil=Date.now()+90000; updateNight(); } }
+  }, true);
 
   // ── Supabase REST ──
   const H = { "apikey":SUPABASE_KEY, "Authorization":"Bearer "+SUPABASE_KEY, "Content-Type":"application/json" };
@@ -471,6 +492,7 @@
   }
 
   function done(kind, seat, endAt){
+    if(kind==='reserve') playDing();   // 예약 완료 사운드
     const et=endAt?new Date(endAt):null;
     const hm=et?String(et.getHours()).padStart(2,'0')+':'+String(et.getMinutes()).padStart(2,'0'):'';
     const title=kind==='reserve'?'예약 완료':kind==='renew'?'연장 완료':'퇴실 완료';
@@ -689,9 +711,13 @@
       try{ await rpc('admin_resolve',{p_pin:adminPin,p_id:b.dataset.id}); loadAReports(); }catch(e){} });
   }
 
-  let CFG={max_minutes:120,renew_window_min:30,idle_return_sec:60,renew_mode:'reset',prevent_dup:true,admin_pin:'0000'};
+  let CFG={max_minutes:120,renew_window_min:30,idle_return_sec:60,renew_mode:'reset',prevent_dup:true,night_off:false,admin_pin:'0000'};
   async function renderASettings(){
-    if(!DEMO){ try{ const c=await rest('app_config?select=id,max_minutes,renew_window_min,renew_mode,idle_return_sec,prevent_dup&id=eq.1'); if(c&&c[0]) CFG=Object.assign(CFG,c[0]); }catch(e){} }   // admin_pin 등 민감 컬럼 제외
+    if(!DEMO){ let c=null;
+      try{ c=await rest('app_config?select=id,max_minutes,renew_window_min,renew_mode,idle_return_sec,prevent_dup,night_off&id=eq.1'); }
+      catch(e){ try{ c=await rest('app_config?select=id,max_minutes,renew_window_min,renew_mode,idle_return_sec,prevent_dup&id=eq.1'); }catch(_){} }   // night_off 컬럼 미적용 시 폴백. admin_pin 등 민감 컬럼 제외
+      if(c&&c[0]) CFG=Object.assign(CFG,c[0]); }
+    updateNight();
     const st=(k,label,desc,val,step,suf)=>`<div class="srow"><div class="sl">${label}<small>${desc}</small></div>
       <div class="stepper"><button data-k="${k}" data-d="-${step}">−</button><div class="val">${val}${suf}</div><button data-k="${k}" data-d="${step}">+</button></div></div>`;
     $("#abody").innerHTML=`<div class="asec"><h3>설정</h3>
@@ -701,11 +727,13 @@
       <div class="srow"><div class="sl">연장 방식<small>reset=현재시각 기준 · add=남은시간+연장</small></div>
         <div class="seg" id="segMode"><button data-v="reset" class="${CFG.renew_mode==='reset'?'on':''}">reset</button><button data-v="add" class="${CFG.renew_mode==='add'?'on':''}">add</button></div></div>
       <div class="srow"><div class="sl">한 사람 한 자리<small>같은 회원 중복 예약 차단</small></div><button class="sw ${CFG.prevent_dup?'on':''}" id="swDup"></button></div>
+      <div class="srow"><div class="sl">야간 화면 끄기<small>01~07시 화면 검게(전원 유지) · 터치하면 잠시 켜짐</small></div><button class="sw ${CFG.night_off?'on':''}" id="swNight"></button></div>
       <div class="srow"><div class="sl">관리자 PIN<small>현재 4자리</small></div><button class="sbtn" id="btnChPin">PIN 변경</button></div>
     </div>`;
     document.querySelectorAll('.stepper button').forEach(b=>b.onclick=()=>changeCfg(b.dataset.k,+b.dataset.d));
     document.querySelectorAll('#segMode button').forEach(b=>b.onclick=()=>saveCfg({renew_mode:b.dataset.v}));
     $("#swDup").onclick=()=>saveCfg({prevent_dup:!CFG.prevent_dup});
+    $("#swNight").onclick=()=>{ saveCfg({night_off:!CFG.night_off}); updateNight(); };
     $("#btnChPin").onclick=changePin;
   }
   function changeCfg(k,d){ let v=(CFG[k]||0)+d;
