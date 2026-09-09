@@ -283,7 +283,9 @@
   .confirm .cc{background:var(--sub);color:var(--ink2)} .confirm .ok{background:var(--tint);color:#fff} .confirm .ok.dan{background:var(--red)}
   .toast{position:fixed;left:50%;bottom:calc(32px + env(safe-area-inset-bottom));transform:translateX(-50%);
     background:rgba(28,28,30,.94);color:#fff;padding:12px 20px;border-radius:14px;font-size:14.5px;font-weight:500;
-    opacity:0;transition:opacity .2s;pointer-events:none;z-index:90;max-width:84vw;text-align:center}
+    opacity:0;transition:opacity .2s;pointer-events:none;z-index:90;width:max-content;max-width:84vw;text-align:center}
+  /* 한글 어절 단위 줄바꿈(고아 글자 '다' 방지) — SE 등 좁은 화면 */
+  .toast,.confirm h3,.confirm p,.noseat .a,.noseat .b,.rpnote,.hmsg,.zhint2,.rphint,.rphint2,.s,.note{word-break:keep-all}
   .toast.on{opacity:1}
   #cfg{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:34px;text-align:center;z-index:95}
   #cfg div{max-width:560px;font-size:16px;line-height:1.7;color:var(--ink2)}
