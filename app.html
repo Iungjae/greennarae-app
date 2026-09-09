@@ -385,8 +385,6 @@
 
   // ── 포맷 ──
   const p2=n=>String(n).padStart(2,'0');
-  function fmtNow(){ const d=new Date(), ap=d.getHours()<12?'오전':'오후'; let h=d.getHours()%12||12;
-    return `${d.getFullYear()}. ${p2(d.getMonth()+1)}. ${p2(d.getDate())}.  ${ap} ${p2(h)}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`; }
   function hm(t){ const d=new Date(t); return p2(d.getHours())+':'+p2(d.getMinutes()); }
   function fmtRem(m){ const h=Math.floor(m/60), mm=m%60; return h>0?`${h}시간 ${p2(mm)}분`:`${mm}분`; }
   const zoneName=id=>({A:'A 구역',B:'B 구역',C:'C 구역'})[String(id)[0]]||'그린나래';
@@ -448,12 +446,15 @@
         <div class="bar"><i style="width:${prog}%"></i></div></div>`; }).join('');
   }
 
-  // ── 잔여 좌석(상세) — 좌석 약도(키오스크와 동일 배치) ──
-  const MAP_A=['A1','A2','A3','A4','A5','A6','A7','A8'], MAP_BT=['B1','B2','B3','B4','B5','B6'],
-        MAP_BB=['B7','B8','B9','B10','B11','B12'], MAP_C=['C1','C2','C3','C4'];
+  // ── 잔여 좌석(상세) — 좌석 약도(DB 기반, 좌석 증감 시 코드수정 불필요) ──
+  const SEAT_FB=['A1','A2','A3','A4','A5','A6','A7','A8','B1','B2','B3','B4','B5','B6','B7','B8','B9','B10','B11','B12','C1','C2','C3','C4'];
+  function layoutFrom(rows){   // seat_status rows(zone·sort) → 약도 배치. B는 상하 반씩
+    const byZ={A:[],B:[],C:[]}; (rows||[]).forEach(r=>{ const z=r.zone||String(r.seat_id)[0]; if(byZ[z]) byZ[z].push(r.seat_id); });
+    const half=Math.ceil(byZ.B.length/2);
+    return { A:byZ.A, Btop:byZ.B.slice(0,half), Bbot:byZ.B.slice(half), C:byZ.C }; }
   function seatCls(s){ return s?(s.is_blocked?'blk':s.occupied?'occ':'free'):'free'; }
-  async function fetchSeats(){ if(DEMO) return MAP_A.concat(MAP_BT,MAP_BB,MAP_C).map((id,i)=>({seat_id:id,occupied:[1,4,9,14,18].indexOf(i)>=0,is_blocked:i===20}));
-    return await rest(`seat_status?select=seat_id,occupied,is_blocked&order=sort`); }
+  async function fetchSeats(){ if(DEMO) return SEAT_FB.map((id,i)=>({seat_id:id,zone:id[0],occupied:[1,4,9,14,18].indexOf(i)>=0,is_blocked:i===20}));
+    return await rest(`seat_status?select=seat_id,zone,occupied,is_blocked&order=sort`); }
   function screenZones(){
     clearTimers();
     screen.innerHTML=`<div class="hd"><button class="back" id="bk">‹ 뒤로</button><h1>잔여 좌석</h1></div>
@@ -468,14 +469,14 @@
         <div class="zsum2">지금 예약 가능 <b class="mono">${free}</b>석 <span>· 전체 ${total}석</span></div>
         <div class="mleg"><span><i class="f"></i>빈자리</span><span><i class="o"></i>이용중</span><span><i class="b"></i>점검중</span></div>
         <div class="mmap">
-          <div class="mzone ma">${MAP_A.map(tile).join('')}</div>
+          <div class="mzone ma">${layoutFrom(rows).A.map(tile).join('')}</div>
           <div class="mmid">
             <div class="mlec">강의실<span>예약 불가</span></div>
-            <div class="mbrow">${MAP_BT.map(tile).join('')}</div>
+            <div class="mbrow">${layoutFrom(rows).Btop.map(tile).join('')}</div>
             <div class="mtable"></div>
-            <div class="mbrow">${MAP_BB.map(tile).join('')}</div>
+            <div class="mbrow">${layoutFrom(rows).Bbot.map(tile).join('')}</div>
           </div>
-          <div class="mzone mc">${MAP_C.map(tile).join('')}</div>
+          <div class="mzone mc">${layoutFrom(rows).C.map(tile).join('')}</div>
         </div>
         <p class="zhint2">빈자리를 확인하고 <b>키오스크에서 QR을 스캔</b>해 예약하세요</p>`;
     };
@@ -490,6 +491,7 @@
       <button class="mi" id="mANotice">공지 관리</button>
       <button class="mi" id="mAMembers">회원 조회</button>
       <button class="mi" id="mAStats">이용 통계</button>
+      <button class="mi" id="mALog">관리 기록</button>
       <button class="mi" id="mAConfig">운영 설정</button>
       <button class="mi" id="mResetPw">비밀번호 초기화</button>
       <button class="mi" id="mAExport">데이터 내보내기</button>` : '';
@@ -510,6 +512,7 @@
       $("#mAReport").onclick=()=>{ hideOv(); screenReportsAdmin(); };
       $("#mAMembers").onclick=()=>{ hideOv(); screenMembers(); };
       $("#mAStats").onclick=()=>{ hideOv(); screenStatsAdmin(); };
+      $("#mALog").onclick=()=>{ hideOv(); screenAdminLog(); };
       $("#mAConfig").onclick=()=>{ hideOv(); screenConfigAdmin(); };
       $("#mResetPw").onclick=()=>{ hideOv(); screenResetPw(); };
       $("#mAExport").onclick=()=>{ hideOv(); doExport(); };
@@ -592,9 +595,9 @@
       L.innerHTML=`<p class="rphint">신고할 좌석을 선택해 주세요.</p>
         <div class="mleg"><span><i class="f"></i>빈자리</span><span><i class="o"></i>이용중</span><span><i class="b"></i>점검중</span></div>
         <div class="mmap">
-          <div class="mzone ma">${MAP_A.map(tile).join('')}</div>
-          <div class="mmid"><div class="mlec">강의실<span>예약 불가</span></div><div class="mbrow">${MAP_BT.map(tile).join('')}</div><div class="mtable"></div><div class="mbrow">${MAP_BB.map(tile).join('')}</div></div>
-          <div class="mzone mc">${MAP_C.map(tile).join('')}</div>
+          <div class="mzone ma">${layoutFrom(rows).A.map(tile).join('')}</div>
+          <div class="mmid"><div class="mlec">강의실<span>예약 불가</span></div><div class="mbrow">${layoutFrom(rows).Btop.map(tile).join('')}</div><div class="mtable"></div><div class="mbrow">${layoutFrom(rows).Bbot.map(tile).join('')}</div></div>
+          <div class="mzone mc">${layoutFrom(rows).C.map(tile).join('')}</div>
         </div>`;
       L.querySelectorAll('.mseat').forEach(el=>el.onclick=()=>openReport(el.dataset.id));   // 모든 좌석 신고 가능(예약 없이 짐만 있는 경우 포함)
     };
@@ -786,15 +789,31 @@
 
   function screenMembers(){ clearTimers();
     screen.innerHTML=`<div class="hd"><button class="back" id="bk">‹ 뒤로</button><h1>회원 조회</h1></div>
-      <div style="padding:14px 16px 6px"><div class="rpsearch"><input class="aci" id="mq" placeholder="학번 또는 이름 검색" inputmode="search"><button class="abtn rpsbtn" id="mgo">검색</button></div><div id="mcount" class="rphint2" style="margin-top:10px"></div></div>
+      <div style="padding:14px 16px 6px"><div class="rpsearch"><input class="aci" id="mq" placeholder="학번 또는 이름 검색" inputmode="search"><button class="abtn rpsbtn" id="mgo">검색</button></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px"><div id="mcount" class="rphint2"></div><button class="adbtn" id="mcsv" style="padding:6px 12px;font-size:12px;flex:0 0 auto">CSV 내보내기</button></div></div>
       <div id="mbody"><div class="empty" style="margin:16px">불러오는 중…</div></div>`;
     $("#bk").onclick=screenHome; const go=()=>loadMembers($("#mq").value.trim());
-    $("#mgo").onclick=go; $("#mq").addEventListener('keydown',e=>{ if(e.key==='Enter') go(); }); loadMembers(''); }
+    $("#mgo").onclick=go; $("#mq").addEventListener('keydown',e=>{ if(e.key==='Enter') go(); }); $("#mcsv").onclick=membersCsv; loadMembers(''); }
+  async function membersCsv(){ toast('CSV 만드는 중…');
+    let res=null; try{ res=await rpc('me_members',{p_q:''}); }catch(e){}
+    const rows=(res&&res.rows)||[]; if(!rows.length){ toast('내보낼 회원이 없어요',true); return; }
+    const head=['학번','이름','가입일','예약수','이번달분','누적분','신고수'];
+    const csv=[head.join(',')].concat(rows.map(m=>[m.student_no||'', '"'+String(m.name||'').replace(/"/g,'""')+'"', String(m.created_at||'').slice(0,10), m.resv_count||0, m.month_min||0, m.total_min||0, m.report_count||0].join(','))).join('\r\n');
+    const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});   // BOM: 엑셀 한글 깨짐 방지
+    const url=URL.createObjectURL(blob), a=document.createElement('a');
+    a.href=url; a.download=`greennarae_members_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000); toast('CSV 내보내기 완료'); }
   async function loadMembers(q){
     let res=null; try{ res=await rpc('me_members',{p_q:q||''}); }catch(e){}
     const rows=(res&&res.rows)||[]; const c=$("#mcount"); if(c) c.textContent=`전체 가입 ${res&&res.total!=null?res.total:0}명${q?` · 검색 ${rows.length}명`:''}`;
     const b=$("#mbody"); if(!b) return;
-    b.innerHTML= rows.length? rows.map(m=>`<div class="mrow"><div style="min-width:0"><div class="mnm">${esc(m.name||'—')}${m.is_admin?' <span style="color:var(--tint-d);font-size:11px">관리자</span>':''}</div><div class="mno">${esc(m.student_no||'')}${m.created_at?' · 가입 '+String(m.created_at).slice(0,10):''}</div></div><div class="mused">예약 ${m.resv_count||0}회<br>이번달 ${minLabel(m.month_min)} · 누적 ${minLabel(m.total_min)}</div></div>`).join('') : '<p class="empty" style="padding:18px">결과가 없어요</p>'; }
+    b.innerHTML= rows.length? rows.map(m=>`<div class="mrow"><div style="min-width:0">
+        <div class="mnm">${esc(m.name||'—')}${m.is_admin?' <span style="color:var(--tint-d);font-size:11px">관리자</span>':''}${m.report_count>0?` <span style="color:#c2410c;font-size:11px;font-weight:700">신고 ${m.report_count}회</span>`:''}</div>
+        <div class="mno">${esc(m.student_no||'')}${m.created_at?' · 가입 '+String(m.created_at).slice(0,10):''}</div></div>
+      <div style="margin-left:auto;text-align:right;flex:0 0 auto">
+        <div style="font-size:12.5px;color:var(--ink2);white-space:nowrap">예약 ${m.resv_count||0}회<br>이번달 ${minLabel(m.month_min)} · 누적 ${minLabel(m.total_min)}</div>
+        ${m.is_admin?'':`<button class="adbtn" data-sno="${esc(m.student_no)}" data-name="${esc(m.name||'')}" style="margin-top:6px;padding:5px 9px;font-size:11.5px">비번 초기화</button>`}</div></div>`).join('') : '<p class="empty" style="padding:18px">결과가 없어요</p>';
+    b.querySelectorAll('button[data-sno]').forEach(x=>x.onclick=()=>askReset(x.dataset.sno, x.dataset.name)); }
 
   async function screenStatsAdmin(){ clearTimers();
     screen.innerHTML=`<div class="hd"><button class="back" id="bk">‹ 뒤로</button><h1>이용 통계</h1></div><div id="stbody"><div class="empty" style="margin:24px 16px">불러오는 중…</div></div>`;
@@ -803,8 +822,18 @@
     const b=$("#stbody"); if(!b) return;
     if(!s||!okOf(s)){ b.innerHTML='<p class="empty" style="padding:18px">불러오기 실패 (admin_app.sql 실행 필요)</p>'; return; }
     const top=(s.perseat||[]).slice(0,6).map(x=>`<div class="adrow"><div class="adseat">${esc(x.seat)}</div><div class="adst">${x.n}회</div></div>`).join('')||'<p class="empty" style="padding:18px">데이터 없음</p>';
+    const hrs=Array(24).fill(0); (s.hourly||[]).forEach(x=>{ if(x.h>=0&&x.h<24) hrs[x.h]=x.n; }); const hmx=Math.max(1,...hrs);
+    const chart=`<div style="display:flex;align-items:flex-end;gap:2px;height:96px;padding:14px 16px 4px">${hrs.map((n,h)=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px"><div style="width:100%;max-width:14px;border-radius:3px 3px 0 0;height:${n?Math.max(4,Math.round(n/hmx*72)):2}px;background:${n?'var(--tint)':'var(--sep)'}"></div><span style="font-size:8px;color:var(--ink3)">${h%6===0?h:''}</span></div>`).join('')}</div>`;
     b.innerHTML=`<div class="adstat"><div class="c"><b>${s.today||0}</b><span>오늘 예약</span></div><div class="c"><b>${s.week||0}</b><span>이번 주</span></div><div class="c"><b>${s.total||0}</b><span>누적</span></div></div>
-      <div style="padding:20px 16px 4px;color:var(--ink3);font-size:13px;font-weight:700">인기 좌석</div>${top}`; }
+      <div style="padding:20px 16px 0;color:var(--ink3);font-size:13px;font-weight:700">시간대별 예약(누적)</div>${chart}
+      <div style="padding:16px 16px 4px;color:var(--ink3);font-size:13px;font-weight:700">인기 좌석</div>${top}`; }
+
+  async function screenAdminLog(){ clearTimers();
+    screen.innerHTML=`<div class="hd"><button class="back" id="bk">‹ 뒤로</button><h1>관리 기록</h1></div><div id="logbody"><div class="empty" style="margin:24px 16px">불러오는 중…</div></div>`;
+    $("#bk").onclick=screenHome;
+    let r=null; try{ r=await rpc('admin_log_list',{p_pin:''}); }catch(e){}
+    const rows=(r&&r.rows)||[]; const b=$("#logbody"); if(!b) return;
+    b.innerHTML= rows.length? `<div class="rphint2" style="padding:12px 16px 4px">최근 관리 작업 기록 (누가 없이 무엇·언제)</div>`+rows.map(x=>`<div class="adrow"><div style="flex:0 0 auto;font-weight:700;font-size:13.5px;color:var(--ink);min-width:64px">${esc(x.action)}</div><div class="adst">${esc(x.detail||'')}</div><div style="flex:0 0 auto;font-size:11.5px;color:var(--ink3);white-space:nowrap">${new Date(x.at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</div></div>`).join('') : '<p class="empty" style="padding:18px">기록이 없어요 (upgrade_v2.sql 실행 필요)</p>'; }
 
   let ACFG={};
   function screenConfigAdmin(){ clearTimers();
@@ -812,8 +841,9 @@
     $("#bk").onclick=screenHome; loadConfigAdmin(); }
   async function loadConfigAdmin(){
     let c=null;
-    try{ c=await rest('app_config?select=max_minutes,renew_window_min,idle_return_sec,renew_mode,prevent_dup,night_off&id=eq.1'); }
-    catch(e){ try{ c=await rest('app_config?select=max_minutes,renew_window_min,idle_return_sec,renew_mode,prevent_dup&id=eq.1'); }catch(_){} }
+    try{ c=await rest('app_config?select=max_minutes,renew_window_min,idle_return_sec,renew_mode,prevent_dup,night_off,daily_max_min&id=eq.1'); }
+    catch(e){ try{ c=await rest('app_config?select=max_minutes,renew_window_min,idle_return_sec,renew_mode,prevent_dup,night_off&id=eq.1'); }
+      catch(_){ try{ c=await rest('app_config?select=max_minutes,renew_window_min,idle_return_sec,renew_mode,prevent_dup&id=eq.1'); }catch(__){} } }
     if(c&&c[0]) ACFG=c[0];
     const stp=(k,l,sub,v,u)=>`<div class="srow2"><div class="sl">${l}<small>${sub}</small></div><div class="stpr"><button data-k="${k}" data-d="-1">−</button><b>${v==null?'—':v}${u}</b><button data-k="${k}" data-d="1">+</button></div></div>`;
     const b=$("#cfgbody"); if(!b) return;
@@ -823,16 +853,18 @@
       <div class="srow2"><div class="sl">연장 방식<small>reset=현재시각 · add=남은시간+</small></div><div class="stpr"><button class="adbtn" id="cmReset" style="${ACFG.renew_mode==='reset'?'border-color:var(--tint);color:var(--tint-d)':''}">reset</button><button class="adbtn" id="cmAdd" style="${ACFG.renew_mode==='add'?'border-color:var(--tint);color:var(--tint-d)':''}">add</button></div></div>
       <div class="srow2"><div class="sl">한 사람 한 자리<small>중복 예약 차단</small></div><button class="swx ${ACFG.prevent_dup?'on':''}" id="swDup2"></button></div>
       <div class="srow2"><div class="sl">야간 화면 끄기<small>키오스크 01~07시 화면 검게</small></div><button class="swx ${ACFG.night_off?'on':''}" id="swNight2"></button></div>
+      <div class="srow2"><div class="sl">1일 최대 이용<small>좌석 독점 방지 · 0=무제한</small></div><div class="stpr"><button data-k="daily_max_min" data-d="-1">−</button><b>${ACFG.daily_max_min>0?ACFG.daily_max_min+'분':'무제한'}</b><button data-k="daily_max_min" data-d="1">+</button></div></div>
       <div class="srow2"><div class="sl">키오스크 관리자 PIN<small>4자리</small></div><button class="adbtn" id="cPin">PIN 변경</button></div>`;
     b.querySelectorAll('.stpr button[data-k]').forEach(x=>x.onclick=()=>cfgStep(x.dataset.k,+x.dataset.d));
     $("#cmReset").onclick=()=>saveACfg({renew_mode:'reset'}); $("#cmAdd").onclick=()=>saveACfg({renew_mode:'add'});
     $("#swDup2").onclick=()=>saveACfg({prevent_dup:!ACFG.prevent_dup});
     $("#swNight2").onclick=()=>saveACfg({night_off:!ACFG.night_off});
     $("#cPin").onclick=changeKioskPin; }
-  function cfgStep(k,d){ const step=(k==='idle_return_sec'?15:(k==='renew_window_min'?5:10)); let v=(+ACFG[k]||0)+d*step;
+  function cfgStep(k,d){ const step=(k==='idle_return_sec'?15:(k==='renew_window_min'?5:(k==='daily_max_min'?30:10))); let v=(+ACFG[k]||0)+d*step;
     if(k==='max_minutes') v=Math.max(30,Math.min(240,v));
     if(k==='renew_window_min') v=Math.max(5,Math.min(60,v));
     if(k==='idle_return_sec') v=Math.max(15,Math.min(180,v));
+    if(k==='daily_max_min') v=Math.max(0,Math.min(720,v));
     saveACfg({[k]:v}); }
   async function saveACfg(patch){ ACFG=Object.assign(ACFG,patch);
     try{ const r=await rpc('admin_config',{p_pin:'',p_patch:patch}); if(!okOf(r)) toast(errOf(r)||'저장 실패',true); }catch(e){ toast('통신 오류',true); }
@@ -1008,6 +1040,7 @@
     const s2=$("#sno"), n2=$("#nm");
     $("#save").onclick=async()=>{ const sno=s2.value.trim(),nm=n2.value.trim();
       if(!sno||!nm){ msg('학번과 이름을 입력하세요'); return; }
+      if(!validSno(sno)){ msg('유효하지 않은 학번이에요'); return; }
       try{ await upsertProfile(sno,nm); enter(); }catch(e){ msg('저장 실패'); } };
   }
 
@@ -1021,11 +1054,10 @@
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
   function isStandalone(){ try{ return matchMedia('(display-mode: standalone)').matches || navigator.standalone===true; }catch(_){ return false; } }
   function installAvailable(){ return !isStandalone() && (!!deferredPrompt || isIOS); }
-  function showInstallBtn(){ const b=$("#installBtn"); if(b) b.hidden = !installAvailable(); }
-  window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); deferredPrompt=e; showInstallBtn(); });
-  window.addEventListener('appinstalled', ()=>{ deferredPrompt=null; showInstallBtn(); try{toast('앱이 설치됐어요 🌿');}catch(_){} });
+  window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); deferredPrompt=e; });
+  window.addEventListener('appinstalled', ()=>{ deferredPrompt=null; try{toast('앱이 설치됐어요 🌿');}catch(_){} });
   async function doInstall(){
-    if(deferredPrompt){ deferredPrompt.prompt(); try{ await deferredPrompt.userChoice; }catch(_){} deferredPrompt=null; showInstallBtn(); return; }
+    if(deferredPrompt){ deferredPrompt.prompt(); try{ await deferredPrompt.userChoice; }catch(_){} deferredPrompt=null; return; }
     if(isIOS){ showOv(`<div class="confirm"><h3>홈 화면에 추가</h3><p style="text-align:left;line-height:1.75">아이폰은 <b>Safari</b>에서 설치해요.<br>① 하단 <b>공유</b> 아이콘 누르기<br>② <b>홈 화면에 추가</b> 선택</p><div class="cb"><button class="ok" id="iok">확인</button></div></div>`); $("#iok").onclick=hideOv; return; }
     showOv(`<div class="confirm"><h3>앱 설치</h3><p style="text-align:left;line-height:1.75">브라우저 메뉴(<b>⋮</b>)에서<br><b>"앱 설치"</b> 또는 <b>"홈 화면에 추가"</b>를 눌러주세요.<br><br>안 보이면 페이지를 새로고침한 뒤 다시 시도하세요.</p><div class="cb"><button class="ok" id="iok">확인</button></div></div>`); $("#iok").onclick=hideOv;
   }
