@@ -1,5 +1,5 @@
 // 그린나래 좌석 — 서비스워커 (PWA 설치/오프라인 셸 + 웹푸시 수신)
-const CACHE = 'gn-v1';
+const CACHE = 'gn-v2';
 const SHELL = ['./', 'app.html', 'manifest.webmanifest', 'icon.svg', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'badge.png'];
 
 self.addEventListener('install', e => {
