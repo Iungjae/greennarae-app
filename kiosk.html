@@ -348,6 +348,7 @@
 (function(){
   "use strict";
   const $ = s => document.querySelector(s);
+  const esc = s => String(s==null?'':s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));   // XSS 방어(신고 detail 등 사용자 입력)
   const TEST = location.search.indexOf('test')>=0;   // ?test → 스캔 화면에 토큰 입력창(리더기 없이 테스트)
   if(!DEMO && (!SUPABASE_URL || !SUPABASE_KEY)){ $("#cfg").hidden=false; return; }
   $("#stage").hidden=false;
@@ -392,18 +393,34 @@
   async function rest(path){ const r=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{headers:H});
     if(!r.ok) throw new Error(await r.text()); return r.json(); }
 
-  // ── 좌석 레이아웃 (A 좌 8 · B 중 12 · C 우 4) ──
-  const A=['A1','A2','A3','A4','A5','A6','A7','A8'];
-  const Btop=['B1','B2','B3','B4','B5','B6'], Bbot=['B7','B8','B9','B10','B11','B12'];
-  const C=['C1','C2','C3','C4'];
+  // ── 좌석 레이아웃 (기본=폴백, 실제 목록은 DB에서 로드 → 좌석 증감 시 코드수정 불필요) ──
+  let A=['A1','A2','A3','A4','A5','A6','A7','A8'];
+  let Btop=['B1','B2','B3','B4','B5','B6'], Bbot=['B7','B8','B9','B10','B11','B12'];
+  let C=['C1','C2','C3','C4'];
   function seatEl(id){ const d=document.createElement('div'); d.className='seat free sel'; d.dataset.id=id;
     d.innerHTML=`${id}<small></small>`; d.onpointerdown=()=>onSeat(id); return d; }
-  (function(){ const z=$("#zA"); z.style.display='grid'; z.style.gridTemplateColumns='repeat(2,100px)'; z.style.gap='14px';
-    z.style.alignContent='space-between'; A.forEach(id=>z.appendChild(seatEl(id))); })();
-  Btop.forEach(id=>$("#zBtop").appendChild(seatEl(id)));
-  Bbot.forEach(id=>$("#zBbot").appendChild(seatEl(id)));
-  C.forEach(id=>$("#zC").appendChild(seatEl(id)));
-  const seatNodes={}; document.querySelectorAll('.seat').forEach(n=>seatNodes[n.dataset.id]=n);
+  const seatNodes={};
+  function buildSeats(){
+    const zA=$("#zA"), zBt=$("#zBtop"), zBb=$("#zBbot"), zC=$("#zC");
+    [zA,zBt,zBb,zC].forEach(z=>{ if(z) z.innerHTML=''; });
+    if(zA){ zA.style.display='grid'; zA.style.gridTemplateColumns='repeat(2,100px)'; zA.style.gap='14px'; zA.style.alignContent='space-between'; A.forEach(id=>zA.appendChild(seatEl(id))); }
+    Btop.forEach(id=>{ if(zBt) zBt.appendChild(seatEl(id)); });
+    Bbot.forEach(id=>{ if(zBb) zBb.appendChild(seatEl(id)); });
+    C.forEach(id=>{ if(zC) zC.appendChild(seatEl(id)); });
+    for(const k in seatNodes) delete seatNodes[k];
+    document.querySelectorAll('.seat').forEach(n=>seatNodes[n.dataset.id]=n);
+  }
+  buildSeats();   // 폴백으로 즉시 빌드(좌석 항상 존재 → 안전)
+  async function loadSeatLayout(){   // DB 좌석으로 재구성. 실패 시 폴백 유지
+    if(DEMO) return;
+    try{ const rows=await rest('seat_status?select=seat_id,zone,sort&order=sort'); if(!rows||!rows.length) return;
+      const byZ={A:[],B:[],C:[]}; rows.forEach(r=>{ if(byZ[r.zone]) byZ[r.zone].push(r.seat_id); });
+      if(byZ.A.length) A=byZ.A;
+      if(byZ.C.length) C=byZ.C;
+      if(byZ.B.length){ const half=Math.ceil(byZ.B.length/2); Btop=byZ.B.slice(0,half); Bbot=byZ.B.slice(half); }
+      buildSeats(); renderSeats();
+    }catch(e){}
+  }
 
   // ── 상태 ──
   let statusMap={}, scanned=null, picking=null, mode='view', prevMode='view', screen='main', idleTimer=null, doneCd=null;
@@ -626,6 +643,8 @@
   // ── 폴링(현황 + 만료 반환) ──
   async function loop(){ if(DEMO){ loadStatus(); setDot(true); return; } try{ await rpc('expire_due',{}); }catch(e){} await loadStatus(); setDot(true); }
   loop(); setInterval(loop, 4000);
+  loadCfg(); setInterval(loadCfg, 60000);   // 시작 시 운영설정 로드 + 60초마다 갱신(야간끄기·1일한도 반영)
+  loadSeatLayout();                          // DB 좌석 목록으로 재구성(폴백 유지)
 
   // ══ 관리자 모드 (D) — 우상단 모서리 5번 탭 → PIN ══
   let adminPin=null, curTab='seats', tapCount=0, tapTimer=null;
@@ -674,7 +693,7 @@
   async function loadNoticesA(){ const box=$("#ntList"); if(!box) return;
     if(DEMO){ box.innerHTML='<p class="amuted">데모 — 실제 목록 없음</p>'; return; }
     try{ const rows=await rest('notices?select=id,title,body,created_at&active=eq.true&order=created_at.desc&limit=30');
-      box.innerHTML=(rows&&rows.length)? rows.map(n=>`<div class="rrow"><div><b>${n.title||'(제목 없음)'}</b><small>${new Date(n.created_at).toLocaleDateString('ko-KR')} · ${(n.body||'').slice(0,32)}</small></div><button data-id="${n.id}">삭제</button></div>`).join('') : '<p class="amuted">게시된 공지가 없습니다.</p>';
+      box.innerHTML=(rows&&rows.length)? rows.map(n=>`<div class="rrow"><div><b>${esc(n.title||'(제목 없음)')}</b><small>${new Date(n.created_at).toLocaleDateString('ko-KR')} · ${esc((n.body||'').slice(0,32))}</small></div><button data-id="${n.id}">삭제</button></div>`).join('') : '<p class="amuted">게시된 공지가 없습니다.</p>';
       document.querySelectorAll('#ntList button[data-id]').forEach(b=>b.onclick=async()=>{ try{ await rpc('admin_del_notice',{p_pin:adminPin,p_id:b.dataset.id}); loadNoticesA(); }catch(e){} });
     }catch(e){ box.innerHTML='<p class="amuted">불러오기 실패</p>'; }
   }
@@ -708,19 +727,21 @@
     let rows=[];
     if(DEMO){ rows=[{id:'d1',seat_id:'B8',reason:'짐만 있고 사람 없음',at:new Date(Date.now()-40*60000).toISOString()},{id:'d2',seat_id:'A2',reason:'장시간 자리 비움',at:new Date(Date.now()-3*3600000).toISOString()}]; }
     else { try{ const res=await rpc('admin_reports',{p_pin:adminPin}); rows=((res&&res.rows)||[]).filter(r=>!r.resolved_at); }catch(e){ box.innerHTML='<p class="amuted">불러오기 실패</p>'; return; } }
-    box.innerHTML = rows.length ? rows.map(r=>`<div class="rrow"><div><b>${r.seat_id}</b> · ${r.reason}${r.detail?`<small style="color:var(--ink2)">${r.detail}</small>`:''}<small>${new Date(r.at).toLocaleString('ko-KR')}</small></div><button data-id="${r.id}">해결됨</button></div>`).join('') : '<p class="amuted">미해결 신고가 없습니다.</p>';
+    box.innerHTML = rows.length ? rows.map(r=>`<div class="rrow"><div><b>${esc(r.seat_id)}</b> · ${esc(r.reason)}${r.detail?`<small style="color:var(--ink2)">${esc(r.detail)}</small>`:''}<small>${new Date(r.at).toLocaleString('ko-KR')}</small></div><button data-id="${r.id}">해결됨</button></div>`).join('') : '<p class="amuted">미해결 신고가 없습니다.</p>';
     document.querySelectorAll('#areports button[data-id]').forEach(b=>b.onclick=async()=>{
       if(DEMO){ toast('해결 처리 (데모)'); const row=b.closest('.rrow'); if(row) row.remove(); return; }
       try{ await rpc('admin_resolve',{p_pin:adminPin,p_id:b.dataset.id}); loadAReports(); }catch(e){} });
   }
 
-  let CFG={max_minutes:120,renew_window_min:30,idle_return_sec:60,renew_mode:'reset',prevent_dup:true,night_off:false,admin_pin:'0000'};
+  let CFG={max_minutes:120,renew_window_min:30,idle_return_sec:60,renew_mode:'reset',prevent_dup:true,night_off:false,daily_max_min:0,admin_pin:'0000'};
+  async function loadCfg(){   // 시작 시 + 주기적으로 운영설정 로드(야간끄기·1일한도 등 즉시 반영)
+    if(DEMO) return; let c=null;
+    try{ c=await rest('app_config?select=id,max_minutes,renew_window_min,renew_mode,idle_return_sec,prevent_dup,night_off,daily_max_min&id=eq.1'); }
+    catch(e){ try{ c=await rest('app_config?select=id,max_minutes,renew_window_min,renew_mode,idle_return_sec,prevent_dup&id=eq.1'); }catch(_){} }   // 새 컬럼 미적용 시 폴백. admin_pin 등 민감 컬럼 제외
+    if(c&&c[0]) CFG=Object.assign(CFG,c[0]); updateNight();
+  }
   async function renderASettings(){
-    if(!DEMO){ let c=null;
-      try{ c=await rest('app_config?select=id,max_minutes,renew_window_min,renew_mode,idle_return_sec,prevent_dup,night_off&id=eq.1'); }
-      catch(e){ try{ c=await rest('app_config?select=id,max_minutes,renew_window_min,renew_mode,idle_return_sec,prevent_dup&id=eq.1'); }catch(_){} }   // night_off 컬럼 미적용 시 폴백. admin_pin 등 민감 컬럼 제외
-      if(c&&c[0]) CFG=Object.assign(CFG,c[0]); }
-    updateNight();
+    await loadCfg();
     const st=(k,label,desc,val,step,suf)=>`<div class="srow"><div class="sl">${label}<small>${desc}</small></div>
       <div class="stepper"><button data-k="${k}" data-d="-${step}">−</button><div class="val">${val}${suf}</div><button data-k="${k}" data-d="${step}">+</button></div></div>`;
     $("#abody").innerHTML=`<div class="asec"><h3>설정</h3>
@@ -731,6 +752,8 @@
         <div class="seg" id="segMode"><button data-v="reset" class="${CFG.renew_mode==='reset'?'on':''}">reset</button><button data-v="add" class="${CFG.renew_mode==='add'?'on':''}">add</button></div></div>
       <div class="srow"><div class="sl">한 사람 한 자리<small>같은 회원 중복 예약 차단</small></div><button class="sw ${CFG.prevent_dup?'on':''}" id="swDup"></button></div>
       <div class="srow"><div class="sl">야간 화면 끄기<small>01~07시 화면 검게(전원 유지) · 터치하면 잠시 켜짐</small></div><button class="sw ${CFG.night_off?'on':''}" id="swNight"></button></div>
+      <div class="srow"><div class="sl">1일 최대 이용<small>좌석 독점 방지 · 0이면 무제한</small></div>
+        <div class="stepper"><button data-k="daily_max_min" data-d="-30">−</button><div class="val">${CFG.daily_max_min>0?CFG.daily_max_min+'분':'무제한'}</div><button data-k="daily_max_min" data-d="30">+</button></div></div>
       <div class="srow"><div class="sl">관리자 PIN<small>현재 4자리</small></div><button class="sbtn" id="btnChPin">PIN 변경</button></div>
     </div>`;
     document.querySelectorAll('.stepper button').forEach(b=>b.onclick=()=>changeCfg(b.dataset.k,+b.dataset.d));
@@ -743,6 +766,7 @@
     if(k==='max_minutes') v=Math.max(30,Math.min(240,v));
     if(k==='renew_window_min') v=Math.max(5,Math.min(60,v));
     if(k==='idle_return_sec') v=Math.max(15,Math.min(180,v));
+    if(k==='daily_max_min') v=Math.max(0,Math.min(720,v));
     saveCfg({[k]:v}); }
   async function saveCfg(patch){ CFG=Object.assign(CFG,patch);
     if(!DEMO){ try{ await rpc('admin_config',{p_pin:adminPin,p_patch:patch}); }catch(e){ toast('저장 오류',true); } }
