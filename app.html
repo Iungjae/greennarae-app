@@ -502,7 +502,6 @@
       <button class="mi" id="mAStats">이용 통계</button>
       <button class="mi" id="mALog">관리 기록</button>
       <button class="mi" id="mAConfig">운영 설정</button>
-      <button class="mi" id="mResetPw">비밀번호 초기화</button>
       <button class="mi" id="mAExport">데이터 내보내기</button>` : '';
     showOv(`<div class="sheet"><div class="sh">메뉴</div>
       ${installAvailable()?'<button class="mi hl" id="mInstall">앱 설치</button>':''}${admin}
@@ -523,7 +522,6 @@
       $("#mAStats").onclick=()=>{ hideOv(); screenStatsAdmin(); };
       $("#mALog").onclick=()=>{ hideOv(); screenAdminLog(); };
       $("#mAConfig").onclick=()=>{ hideOv(); screenConfigAdmin(); };
-      $("#mResetPw").onclick=()=>{ hideOv(); screenResetPw(); };
       $("#mAExport").onclick=()=>{ hideOv(); doExport(); };
     }
     $("#mHist").onclick=()=>{ hideOv(); screenHistory(); };
@@ -892,32 +890,7 @@
       document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000); toast('내보내기 완료');
     }catch(e){ toast('내보내기 실패',true); } }
 
-  // ── 비밀번호 초기화(관리자): 학번 검색 → 임시 비번 (계정/열품타 유지) ──
-  function screenResetPw(){
-    clearTimers();
-    screen.innerHTML=`<div class="hd"><button class="back" id="bk">뒤로</button><h1>비밀번호 초기화</h1></div>
-      <div id="rplist" class="rpwrap">
-        <p class="rphint2">학번을 검색해 임시 비밀번호로 초기화하세요.</p>
-        <div class="rpsearch"><input class="aci" id="rpq" placeholder="학번 또는 이름 검색" inputmode="search"><button class="abtn rpsbtn" id="rpgo">검색</button></div>
-        <div id="rpresults"></div>
-      </div>`;
-    $("#bk").onclick=screenHome;
-    const doSearch=async()=>{
-      const q=$("#rpq").value.trim(); const el=$("#rpresults"); if(!el) return;
-      if(!q){ el.innerHTML=''; return; }
-      el.innerHTML='<p class="empty" style="padding:14px">검색 중…</p>';
-      let r; try{ r=await rpc('me_find_member',{p_q:q}); }catch(e){ el.innerHTML='<p class="empty" style="padding:14px">검색 실패</p>'; return; }
-      const rows=(r&&r.rows)||[];
-      el.innerHTML = rows.length ? rows.map(m=>`<div class="rpitem">
-          <div class="rpinfo"><div class="rpname">${esc(m.name||'—')}</div><div class="rpsub"><span class="mono">${esc(m.student_no)}</span> · 이용 ${m.uses||0}회</div></div>
-          <button class="rpbtn" data-sno="${esc(m.student_no)}" data-name="${esc(m.name||'')}">초기화</button></div>`).join('')
-        : '<p class="empty" style="padding:16px">검색 결과가 없어요</p>';
-      el.querySelectorAll('.rpbtn').forEach(b=>b.onclick=()=>askReset(b.dataset.sno, b.dataset.name));
-    };
-    $("#rpgo").onclick=doSearch;
-    $("#rpq").addEventListener('keydown',e=>{ if(e.key==='Enter') doSearch(); });
-    setTimeout(()=>{ const i=$("#rpq"); if(i) i.focus(); }, 120);
-  }
+  // ── 비밀번호 초기화: 회원 조회(screenMembers)에서 회원별 '비번 초기화' 버튼 → askReset ──
   function genTempPw(){ return '000000'; }   // 임시 비밀번호: 0 6자리(회원에게 전달 후 로그인→변경)
   function askReset(sno, name){
     confirmSheet('비밀번호 초기화', `${esc(name||sno)}님(${esc(sno)})의 비밀번호를 임시로 초기화할까요?<br><b>이용 기록(열품타)은 그대로 유지</b>됩니다.`, '초기화', false, async()=>{
