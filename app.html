@@ -190,7 +190,7 @@
   .srow2{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 16px;border-bottom:1px solid var(--sep)}
   .srow2 .sl{font-size:15px;font-weight:600}.srow2 .sl small{display:block;font-size:12px;color:var(--ink3);font-weight:400;margin-top:2px}
   .stpr{display:flex;align-items:center;gap:14px;flex:0 0 auto}.stpr b{min-width:58px;text-align:center;font-variant-numeric:tabular-nums}
-  .stpr button{width:34px;height:34px;border-radius:9px;border:1px solid var(--field);background:#fff;font-size:18px;font-family:inherit;color:var(--ink)}
+  .stpr button[data-d]{width:34px;height:34px;border-radius:9px;border:1px solid var(--field);background:#fff;font-size:18px;font-family:inherit;color:var(--ink)}   /* 스테퍼 +/− 만(reset/add 버튼 제외) */
   .swx{width:46px;height:28px;border-radius:99px;background:#d1d1d6;border:0;position:relative;flex:0 0 auto;transition:background .15s}
   .swx.on{background:var(--tint)}.swx::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .15s}.swx.on::after{left:21px}
   .mrow{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid var(--sep)}
@@ -800,8 +800,8 @@
   async function membersCsv(){ toast('CSV 만드는 중…');
     let res=null; try{ res=await rpc('me_members',{p_q:''}); }catch(e){}
     const rows=(res&&res.rows)||[]; if(!rows.length){ toast('내보낼 회원이 없어요',true); return; }
-    const head=['학번','이름','가입일','예약수','이번달분','누적분','신고수'];
-    const csv=[head.join(',')].concat(rows.map(m=>[m.student_no||'', '"'+String(m.name||'').replace(/"/g,'""')+'"', String(m.created_at||'').slice(0,10), m.resv_count||0, m.month_min||0, m.total_min||0, m.report_count||0].join(','))).join('\r\n');
+    const head=['학번','이름','가입일','예약수','이번달분','누적분','받은신고수','신고한횟수'];
+    const csv=[head.join(',')].concat(rows.map(m=>[m.student_no||'', '"'+String(m.name||'').replace(/"/g,'""')+'"', String(m.created_at||'').slice(0,10), m.resv_count||0, m.month_min||0, m.total_min||0, m.report_count||0, m.filed_count||0].join(','))).join('\r\n');
     const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});   // BOM: 엑셀 한글 깨짐 방지
     const url=URL.createObjectURL(blob), a=document.createElement('a');
     a.href=url; a.download=`greennarae_members_${new Date().toISOString().slice(0,10)}.csv`;
