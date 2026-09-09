@@ -38,7 +38,11 @@
   .hd .lg{width:23px;height:23px;border-radius:6px;display:block}
   .hd h1{font-size:17px;font-weight:600;margin:0}
   .hd .menu{position:absolute;right:8px;bottom:6px;background:none;border:0;padding:8px;color:var(--ink);line-height:0}
-  .hd .back{position:absolute;left:5px;bottom:6px;background:none;border:0;color:var(--tint);font-size:16px;font-weight:400;padding:6px 8px}
+  .hd .back{position:absolute;left:5px;bottom:6px;display:inline-flex;align-items:center;gap:2px;background:none;border:0;color:var(--tint);font-size:16.5px;font-weight:400;line-height:1;padding:6px 10px 6px 4px;letter-spacing:-.02em;-webkit-tap-highlight-color:transparent}
+  .hd .back::before{content:"";width:11px;height:19px;flex:0 0 auto;background:currentColor;
+    --chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 20' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 2 3 10 9 18'/%3E%3C/svg%3E");
+    -webkit-mask:var(--chev) center no-repeat;mask:var(--chev) center no-repeat;-webkit-mask-size:contain;mask-size:contain}
+  .hd .back:active{opacity:.35}
   /* 홈: 3블록이 화면을 꽉 채움 */
   main{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;padding:1px 16px calc(11px + env(safe-area-inset-bottom))}
   .card{flex:1 1 auto;background:var(--card);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;
@@ -462,7 +466,7 @@
     return await rest(`seat_status?select=seat_id,zone,occupied,is_blocked&order=sort`); }
   function screenZones(){
     clearTimers();
-    screen.innerHTML=`<div class="hd"><button class="back" id="bk">‹ 뒤로</button><h1>잔여 좌석</h1></div>
+    screen.innerHTML=`<div class="hd"><button class="back" id="bk">뒤로</button><h1>잔여 좌석</h1></div>
       <div id="zlist"><div class="empty" style="margin:20px 16px">불러오는 중…</div></div>`;
     $("#bk").onclick=screenHome;
     const render=async()=>{ let rows; try{ rows=await fetchSeats(); }catch(e){ return; }
@@ -549,7 +553,7 @@
   // ── 내 이용 내역 (열품타 스타일: 이번 달 공부시간·연속출석·일별 그래프) ──
   function screenHistory(){
     clearTimers();
-    screen.innerHTML=`<div class="hd"><button class="back" id="bk">‹ 뒤로</button><h1>내 이용 내역</h1></div>
+    screen.innerHTML=`<div class="hd"><button class="back" id="bk">뒤로</button><h1>내 이용 내역</h1></div>
       <div id="histbody"><div class="empty" style="margin:24px 16px">불러오는 중…</div></div>`;
     $("#bk").onclick=screenHome;
     (async()=>{
@@ -590,7 +594,7 @@
   const REASONS=['장시간 자리 비움','예약 없이 짐만 있음','유의사항 위반','기타'];
   function screenReport(){
     clearTimers();
-    screen.innerHTML=`<div class="hd"><button class="back" id="bk">‹ 뒤로</button><h1>좌석 신고</h1></div>
+    screen.innerHTML=`<div class="hd"><button class="back" id="bk">뒤로</button><h1>좌석 신고</h1></div>
       <div id="zlist"><div class="empty" style="margin:24px 16px">불러오는 중…</div></div>`;
     $("#bk").onclick=screenHome;
     const render=async()=>{ let rows; try{ rows=await fetchSeats(); }catch(e){ return; }
@@ -630,7 +634,7 @@
   // ── 공지사항 ──
   function screenNotices(){
     clearTimers();
-    screen.innerHTML=`<div class="hd"><button class="back" id="bk">‹ 뒤로</button><h1>공지사항</h1></div>
+    screen.innerHTML=`<div class="hd"><button class="back" id="bk">뒤로</button><h1>공지사항</h1></div>
       <div id="nlist"><div class="empty" style="margin:24px 16px">불러오는 중…</div></div>`;
     $("#bk").onclick=screenHome;
     (async()=>{ let rows=[]; try{ rows=await rest(`notices?select=title,body,created_at&active=eq.true&order=created_at.desc&limit=50`)||[]; }catch(e){}
@@ -706,7 +710,7 @@
   // 공지 관리
   function screenNoticeAdmin(){
     clearTimers();
-    screen.innerHTML=`<div class="hd"><button class="back" id="bk">‹ 뒤로</button><h1>공지 관리</h1></div>
+    screen.innerHTML=`<div class="hd"><button class="back" id="bk">뒤로</button><h1>공지 관리</h1></div>
       <div id="nlist">
         <div class="acompose">
           <input class="aci" id="ntitle" placeholder="제목 (선택)">
@@ -746,7 +750,7 @@
   // 민원 접수함
   function screenReportsAdmin(){
     clearTimers();
-    screen.innerHTML=`<div class="hd"><button class="back" id="bk">‹ 뒤로</button><h1>민원 접수함</h1></div>
+    screen.innerHTML=`<div class="hd"><button class="back" id="bk">뒤로</button><h1>민원 접수함</h1></div>
       <div id="repadmin"><div class="empty" style="padding:16px">불러오는 중…</div></div>`;
     $("#bk").onclick=screenHome;
     (async()=>{ const rows=await pollReports(true); renderReportsAdmin(rows); })();
@@ -772,7 +776,7 @@
   function minLabel(m){ m=Math.max(0,Math.round(m||0)); const h=Math.floor(m/60); return h>0?`${h}시간 ${m%60}분`:`${m}분`; }
 
   function screenSeatsAdmin(){ clearTimers();
-    screen.innerHTML=`<div class="hd"><button class="back" id="bk">‹ 뒤로</button><h1>좌석 관리</h1></div><div id="sabody"><div class="empty" style="margin:24px 16px">불러오는 중…</div></div>`;
+    screen.innerHTML=`<div class="hd"><button class="back" id="bk">뒤로</button><h1>좌석 관리</h1></div><div id="sabody"><div class="empty" style="margin:24px 16px">불러오는 중…</div></div>`;
     $("#bk").onclick=screenHome; loadSeatsAdmin(); }
   async function loadSeatsAdmin(){
     let rows=[]; try{ rows=await rest(`seat_status?select=seat_id,zone,occupied,is_blocked,end_at,sno_masked&order=seat_id`)||[]; }catch(e){}
@@ -793,7 +797,7 @@
     else run(); }
 
   function screenMembers(){ clearTimers();
-    screen.innerHTML=`<div class="hd"><button class="back" id="bk">‹ 뒤로</button><h1>회원 조회</h1></div>
+    screen.innerHTML=`<div class="hd"><button class="back" id="bk">뒤로</button><h1>회원 조회</h1></div>
       <div style="padding:14px 16px 6px"><div class="rpsearch"><input class="aci" id="mq" placeholder="학번 또는 이름 검색" inputmode="search"><button class="abtn rpsbtn" id="mgo">검색</button></div>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px"><div id="mcount" class="rphint2"></div><button class="adbtn" id="mcsv" style="padding:6px 12px;font-size:12px;flex:0 0 auto">CSV 내보내기</button></div></div>
       <div id="mbody"><div class="empty" style="margin:16px">불러오는 중…</div></div>`;
@@ -821,7 +825,7 @@
     b.querySelectorAll('button[data-sno]').forEach(x=>x.onclick=()=>askReset(x.dataset.sno, x.dataset.name)); }
 
   async function screenStatsAdmin(){ clearTimers();
-    screen.innerHTML=`<div class="hd"><button class="back" id="bk">‹ 뒤로</button><h1>이용 통계</h1></div><div id="stbody"><div class="empty" style="margin:24px 16px">불러오는 중…</div></div>`;
+    screen.innerHTML=`<div class="hd"><button class="back" id="bk">뒤로</button><h1>이용 통계</h1></div><div id="stbody"><div class="empty" style="margin:24px 16px">불러오는 중…</div></div>`;
     $("#bk").onclick=screenHome;
     let s=null; try{ s=await rpc('admin_stats',{p_pin:''}); }catch(e){}
     const b=$("#stbody"); if(!b) return;
@@ -834,7 +838,7 @@
       <div style="padding:16px 16px 4px;color:var(--ink3);font-size:13px;font-weight:700">인기 좌석</div>${top}`; }
 
   async function screenAdminLog(){ clearTimers();
-    screen.innerHTML=`<div class="hd"><button class="back" id="bk">‹ 뒤로</button><h1>관리 기록</h1></div><div id="logbody"><div class="empty" style="margin:24px 16px">불러오는 중…</div></div>`;
+    screen.innerHTML=`<div class="hd"><button class="back" id="bk">뒤로</button><h1>관리 기록</h1></div><div id="logbody"><div class="empty" style="margin:24px 16px">불러오는 중…</div></div>`;
     $("#bk").onclick=screenHome;
     let r=null; try{ r=await rpc('admin_log_list',{p_pin:''}); }catch(e){}
     const rows=(r&&r.rows)||[]; const b=$("#logbody"); if(!b) return;
@@ -842,7 +846,7 @@
 
   let ACFG={};
   function screenConfigAdmin(){ clearTimers();
-    screen.innerHTML=`<div class="hd"><button class="back" id="bk">‹ 뒤로</button><h1>운영 설정</h1></div><div id="cfgbody"><div class="empty" style="margin:24px 16px">불러오는 중…</div></div>`;
+    screen.innerHTML=`<div class="hd"><button class="back" id="bk">뒤로</button><h1>운영 설정</h1></div><div id="cfgbody"><div class="empty" style="margin:24px 16px">불러오는 중…</div></div>`;
     $("#bk").onclick=screenHome; loadConfigAdmin(); }
   async function loadConfigAdmin(){
     let c=null;
@@ -891,7 +895,7 @@
   // ── 비밀번호 초기화(관리자): 학번 검색 → 임시 비번 (계정/열품타 유지) ──
   function screenResetPw(){
     clearTimers();
-    screen.innerHTML=`<div class="hd"><button class="back" id="bk">‹ 뒤로</button><h1>비밀번호 초기화</h1></div>
+    screen.innerHTML=`<div class="hd"><button class="back" id="bk">뒤로</button><h1>비밀번호 초기화</h1></div>
       <div id="rplist" class="rpwrap">
         <p class="rphint2">학번을 검색해 임시 비밀번호로 초기화하세요.</p>
         <div class="rpsearch"><input class="aci" id="rpq" placeholder="학번 또는 이름 검색" inputmode="search"><button class="abtn rpsbtn" id="rpgo">검색</button></div>
