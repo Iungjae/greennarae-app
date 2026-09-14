@@ -1,28 +1,38 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#f2f2f7">
 <title>그린나래 앱 설치</title>
+<link rel="icon" href="/icon.svg">
+<link rel="stylesheet" href="/fonts/pretendard/pretendardvariable-dynamic-subset.css">
 <style>
   *{box-sizing:border-box}
-  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
-    background:#f1f5f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Apple SD Gothic Neo',sans-serif;color:#0f172a;padding:24px}
-  .card{background:#fff;border-radius:24px;box-shadow:0 10px 40px rgba(0,0,0,.08);padding:40px 40px 34px;width:min(440px,92vw);text-align:center}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  body{margin:0;min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;
+    background:#f2f2f7;font-family:-apple-system,BlinkMacSystemFont,"Pretendard Variable",Pretendard,system-ui,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    color:#1c1c1e;padding:24px;padding-bottom:calc(24px + env(safe-area-inset-bottom));-webkit-font-smoothing:antialiased;letter-spacing:-.01em;
+    word-break:keep-all;overflow-wrap:break-word}
+  .card{background:#fff;border-radius:24px;box-shadow:0 10px 40px rgba(0,0,0,.07);padding:40px 36px 32px;width:min(440px,100%);text-align:center}
   .brand{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:6px}
   .brand .logo{width:38px;height:38px;border-radius:10px}
-  .brand h1{font-size:26px;font-weight:800;margin:0;letter-spacing:-.02em}
-  .sub{color:#64748b;font-size:15px;margin:2px 0 26px}
-  .qrbox{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:16px;width:min(300px,74vw);margin:0 auto}
+  .brand h1{font-size:26px;font-weight:700;margin:0;letter-spacing:-.02em}
+  .sub{color:#636366;font-size:15px;margin:2px 0 26px}
+  .qrbox{background:#fff;border:1px solid rgba(60,60,67,.14);border-radius:18px;padding:16px;width:min(300px,100%);margin:0 auto}
   .qrbox img{width:100%;height:auto;display:block;image-rendering:pixelated}
   .cap{margin-top:22px;font-size:17px;font-weight:700}
-  .url{margin-top:8px;font-size:13px;color:#0d9f6e;word-break:break-all;user-select:all;background:#f0fdf4;border-radius:9px;padding:8px 10px}
-  .steps{text-align:left;margin-top:24px;border-top:1px solid #eef2f1;padding-top:20px;display:flex;flex-direction:column;gap:14px}
-  .step{display:flex;gap:12px;align-items:flex-start;font-size:14.5px;line-height:1.5}
-  .step .t{color:#475569} .step b{color:#0f172a}
-  .notes{text-align:left;margin-top:18px;border-top:1px solid #eef2f1;padding-top:16px;display:flex;flex-direction:column;gap:10px;font-size:13px;color:#64748b;line-height:1.55}
+  .url{margin-top:8px;font-size:14px;color:#1a7a45;font-weight:600;word-break:break-all;user-select:all;background:#e3f3ea;border-radius:10px;padding:9px 12px}
+  .steps{text-align:left;margin-top:24px;border-top:1px solid rgba(60,60,67,.12);padding-top:20px;display:flex;flex-direction:column;gap:14px}
+  .step{font-size:15px;line-height:1.55}
+  .step .t{color:#3a3a3c} .step b{color:#1c1c1e;font-weight:700}
+  .notes{text-align:left;margin-top:18px;border-top:1px solid rgba(60,60,67,.12);padding-top:16px;display:flex;flex-direction:column;gap:10px;font-size:14px;color:#636366;line-height:1.55}
   .notes p{margin:0}
-  .notes .nl{font-weight:700;color:#475569}
+  .notes .nl{font-weight:700;color:#3a3a3c}
   .notes .warn{color:#c2410c}
+  .notes a{color:#1a7a45;font-weight:600;text-decoration:none}
+  @media (max-width:380px){ body{padding:16px} .card{padding:30px 22px 26px} }
 </style></head>
 <body>
+  <script src="/inapp.js"></script>
   <div class="card">
     <div class="brand">
       <svg class="logo" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#1b5e43"/><path d="M32 52C32 45 30.5 39 33 32" stroke="#e0f7ec" stroke-width="4.2" stroke-linecap="round" fill="none"/><ellipse cx="23" cy="31" rx="10.5" ry="6.6" transform="rotate(-28 23 31)" fill="#5cc793"/><ellipse cx="41" cy="26" rx="12" ry="7.6" transform="rotate(32 41 26)" fill="#a9e5c8"/></svg>
@@ -39,7 +49,7 @@
     </div>
     <div class="notes">
       <p><span class="nl warn">*주의사항</span> - 반드시 괄호 안의 브라우저로 지시에 따라 설치해주세요.</p>
-      <p><span class="nl">*문의사항</span> - 사생회 카카오톡 채널로 부탁드립니다.</p>
+      <p><span class="nl">*문의사항</span> - <a href="https://pf.kakao.com/_BvjQn" target="_blank" rel="noopener">사생회 카카오톡 채널</a>로 부탁드립니다.</p>
     </div>
   </div>
 </body></html>
