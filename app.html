@@ -246,20 +246,30 @@
   .adbtn{min-height:44px;min-width:52px;padding:0 13px;border:0;border-radius:10px;background:var(--sub);font-size:14px;font-weight:600;color:var(--ink);white-space:nowrap}
   .adbtn.dan{background:var(--red-bg);color:var(--red)}
   .adbtn:active{opacity:.6} .adbtn:disabled{opacity:.4}
+  a.adbtn{display:inline-flex;align-items:center;justify-content:center}
   .msearch{display:flex;gap:8px}
   .msearch .aci{flex:1}
   .msearch .abtn{width:auto;flex:0 0 auto;height:48px;padding:0 20px}
   .mbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
   .mcount{font-size:14px;color:var(--ink2)}
-  .mrow{display:flex;flex-wrap:wrap;align-items:flex-start;gap:6px 12px;padding:12px 14px}
-  .mrow .who{flex:1 1 150px;min-width:0}
-  .mnm{font-weight:700;font-size:16px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px}
-  .tag{font-size:12px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap}
+  .tag{font-size:12px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;vertical-align:2px}
   .tag.adm{background:var(--tint-bg);color:var(--tint-text)} .tag.rep{background:var(--red-bg);color:var(--red)}
-  .mno{font-size:13px;color:var(--ink2);font-variant-numeric:tabular-nums;margin-top:3px}
-  .mused{flex:1 1 150px;font-size:13px;color:var(--ink2);line-height:1.5;text-align:right;font-variant-numeric:tabular-nums}
-  .macts{flex-basis:100%;display:flex;gap:6px;justify-content:flex-end}
-  .repitem{display:flex;align-items:center;gap:12px;padding:13px 14px}
+  .mitem{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:8px 14px;background:none;border:0;text-align:left;color:var(--ink);cursor:pointer}
+  .mitem:active{background:var(--fill)}
+  .mitem .mnm{flex:1;min-width:0;font-size:16px;font-weight:600;line-height:1.35;overflow-wrap:anywhere}   /* 긴 이름도 잘리지 않게 줄바꿈 */
+  .mitem .mno{font-size:15px;color:var(--ink2);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .mitem .chev{color:var(--ink3)}
+  .repitem{display:grid;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:10px 12px;padding:13px 14px}
+  .repwho{grid-column:1 / -1;background:var(--sub);border-radius:12px;padding:10px 12px}
+  .repwho.none{font-size:14px;color:var(--ink2)}
+  .rwl{font-size:13px;color:var(--ink2)}
+  .rwn{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;font-size:16px;font-weight:600;margin-top:2px}
+  .rwn .mono{font-size:14px;font-weight:500;color:var(--ink2)}
+  .rwa{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px}
+  .rwa .adbtn{background:var(--card);min-width:64px}
+  .rwp{font-size:14px;color:var(--ink2);margin-top:4px}
+  .rwa .rwp{margin-top:0}
+  @media (max-width:370px){ .repitem{grid-template-columns:44px minmax(0,1fr)} .repitem>.repbtn,.repitem>.repdone{grid-column:2;justify-self:start} }   /* 좁은 화면: 버튼을 내용 아래로 */
   .repitem.done{opacity:.55}
   .repseat{flex:0 0 auto;min-width:48px;height:48px;padding:0 8px;border-radius:12px;background:var(--tint-bg);color:var(--tint-text);font-size:17px;font-weight:800;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
   .repinfo{flex:1;min-width:0}
@@ -311,7 +321,7 @@
   .link{display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;background:none;border:0;color:var(--tint-text);font-size:16px;font-weight:500;margin-top:10px}
   .link.sub{color:var(--ink2);font-size:15px;margin-top:0}
   .note{font-size:13px;color:var(--ink2);text-align:center;margin-top:16px;line-height:1.55}
-  .msg{margin-top:12px;padding:11px 14px;border-radius:12px;font-size:15px;text-align:center;line-height:1.45}
+  .msg{margin-top:12px;padding:11px 14px;border-radius:12px;font-size:15px;text-align:center;line-height:1.45;white-space:pre-line}
   .msg:empty{display:none}
   .msg.err{background:var(--red-bg);color:var(--red)} .msg.ok{background:var(--tint-bg);color:var(--tint-text)}
 
@@ -512,6 +522,7 @@
   // ── 포맷 ──
   const p2=n=>String(n).padStart(2,'0');
   function hm(t){ const d=new Date(t); return p2(d.getHours())+':'+p2(d.getMinutes()); }
+  function dtK(t){ const d=new Date(t); return `${d.getMonth()+1}월 ${d.getDate()}일 ${hm(d)}`; }   // 9월 13일 14:05 (앱 전체 24시간 표기)
   function fmtRem(m){ const h=Math.floor(m/60), mm=m%60; return h>0?(mm?`${h}시간 ${mm}분`:`${h}시간`):`${mm}분`; }
   const zoneName=id=>({A:'A 구역',B:'B 구역',C:'C 구역'})[String(id)[0]]||'그린나래';
 
@@ -929,13 +940,21 @@
     const el=$("#repadmin"); if(!el) return;
     rows=(rows||[]).slice().sort((a,b)=> (a.resolved_at?1:0)-(b.resolved_at?1:0) || (+new Date(b.at)-+new Date(a.at)) );
     const un=rows.filter(r=>!r.resolved_at).length;
+    const whenEnd=(t,ref)=>{ const e=new Date(t); return (e.toDateString()===new Date(ref).toDateString()?hm(e):dtK(e))+' 종료'; };
+    const person=r=>{ if(r.person_kind===undefined) return '';   // upgrade_v5.sql 적용 전엔 표시하지 않음
+      if(!r.person_kind) return '<div class="repwho none">이 좌석은 예약 기록이 없어요</div>';
+      const d=phoneDigits(r.person_phone);
+      return `<div class="repwho"><div class="rwl">${r.person_kind==='current'?'신고 당시 이용자':'직전 이용자 · '+whenEnd(r.person_end_at,r.at)}</div>
+        <div class="rwn">${esc(r.person_name||'알 수 없음')}<span class="mono">${esc(r.person_sno||'')}</span></div>
+        ${d?`<div class="rwa"><a class="adbtn" href="tel:${d}">전화</a><a class="adbtn" href="sms:${d}">문자</a><span class="rwp mono">${fmtPhone(d)}</span></div>`:'<div class="rwp">휴대폰 번호 미등록</div>'}</div>`; };
     el.innerHTML = `<div class="rephdr">처리 전 <b>${un}</b>건 · 전체 ${rows.length}건</div>` + (rows.length ? `<div class="agroup">${rows.map(r=>`
       <div class="repitem ${r.resolved_at?'done':''}">
         <div class="repseat">${esc(r.seat_id||'—')}</div>
         <div class="repinfo"><div class="reprsn">${esc(r.reason||'기타')}</div>
           ${r.detail?`<div class="repdetail">${esc(r.detail)}</div>`:''}
-          <div class="repmeta">${new Date(r.at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}${r.resolved_at?' · 처리 완료':''}</div></div>
+          <div class="repmeta">${dtK(r.at)}${r.resolved_at?' · 처리 완료':''}</div></div>
         ${r.resolved_at?`<span class="repdone">${I.checkLg}</span>`:`<button class="repbtn" data-id="${r.id}">처리 완료</button>`}
+        ${person(r)}
       </div>`).join('')}</div>` : '<p class="empty" style="padding:24px 0">접수된 민원이 없어요</p>');
     el.querySelectorAll('.repbtn').forEach(btn=>btn.onclick=async()=>{ btn.disabled=true;
       try{ const r=await rpc('me_resolve',{p_id:btn.dataset.id}); if(okOf(r)){ toast('처리 완료했어요','ok'); renderReportsAdmin(await pollReports(true)); } else { btn.disabled=false; toast(errOf(r)||'처리하지 못했어요','err'); } }
@@ -984,18 +1003,37 @@
     const url=URL.createObjectURL(blob), a=document.createElement('a');
     a.href=url; a.download=`greennarae_members_${new Date().toISOString().slice(0,10)}.csv`;
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000); toast('CSV를 내보냈어요','ok'); }
+  let MEMBERS=[];
   async function loadMembers(q){
     let res=null; try{ res=await rpc('me_members',{p_q:q||''}); }catch(e){}
-    const rows=(res&&res.rows)||[]; const c=$("#mcount"); if(c) c.textContent=`전체 가입 ${res&&res.total!=null?res.total:0}명${q?` · 검색 결과 ${rows.length}명`:''}`;
+    const rows=(res&&res.rows)||[]; MEMBERS=rows;
+    const c=$("#mcount"); if(c) c.textContent=`전체 가입 ${res&&res.total!=null?res.total:0}명${q?` · 검색 결과 ${rows.length}명`:''}`;
     const b=$("#mbody"); if(!b) return;
-    b.innerHTML = rows.length ? `<div class="agroup">${rows.map(m=>`<div class="mrow">
-        <div class="who"><div class="mnm">${esc(m.name||'—')}${m.is_admin?'<span class="tag adm">관리자</span>':''}${m.report_count>0?`<span class="tag rep">신고 ${m.report_count}회</span>`:''}</div>
-          <div class="mno">${esc(m.student_no||'')}${m.created_at?' · 가입 '+String(m.created_at).slice(0,10):''}</div></div>
-        <div class="mused">예약 ${m.resv_count||0}회<br>이번 달 ${minLabel(m.month_min)} · 누적 ${minLabel(m.total_min)}</div>
-        ${m.is_admin?'':`<div class="macts"><button class="adbtn" data-reset="${esc(m.student_no)}" data-name="${esc(m.name||'')}">비밀번호 초기화</button><button class="adbtn dan" data-del="${esc(m.student_no)}" data-name="${esc(m.name||'')}">탈퇴시키기</button></div>`}
-      </div>`).join('')}</div>` : `<p class="empty" style="padding:24px 0">${q?'검색 결과가 없어요':'가입한 회원이 없어요'}</p>`;
-    b.querySelectorAll('button[data-reset]').forEach(x=>x.onclick=()=>askReset(x.dataset.reset, x.dataset.name));
-    b.querySelectorAll('button[data-del]').forEach(x=>x.onclick=()=>askDeleteMember(x.dataset.del, x.dataset.name)); }
+    b.innerHTML = rows.length ? `<div class="agroup">${rows.map((m,i)=>`<button class="mitem" data-i="${i}"><span class="mnm">${esc(m.name||'—')}</span><span class="mno">${esc(m.student_no||'')}</span><i class="chev"></i></button>`).join('')}</div>`
+      : `<p class="empty" style="padding:24px 0">${q?'검색 결과가 없어요':'가입한 회원이 없어요'}</p>`;
+    b.querySelectorAll('.mitem').forEach(x=>x.onclick=()=>openMemberSheet(MEMBERS[+x.dataset.i])); }
+  function openMemberSheet(m){ if(!m) return;
+    const d=phoneDigits(m.phone), ph=d?fmtPhone(d):'';
+    const kv=(k,v)=>`<div class="row noic"><span class="tx">${k}</span><span class="val">${v}</span></div>`;
+    showOv(`<div class="sheet" id="sheet" role="dialog" aria-label="회원 정보">
+      <div class="grab"><i></i></div>
+      <div class="shd"><b>회원 정보</b><button id="msClose">완료</button></div>
+      <div class="sbody">
+        <div class="list" style="margin-top:6px"><div class="acct"><div class="av">${esc(String(m.name||'?').slice(0,1))}</div><div style="min-width:0"><b>${esc(m.name||'—')}${m.is_admin?' <span class="tag adm">관리자</span>':''}</b><small>${esc(m.student_no||'')}</small></div></div></div>
+        <div class="gtitle">연락처</div><div class="list">
+          ${d?`<a class="row" href="tel:${d}"><span class="ic" style="background:#34c759">${I.phone}</span><span class="tx">전화 걸기<small class="mono">${ph}</small></span><i class="chev"></i></a>
+          <a class="row" href="sms:${d}"><span class="ic" style="background:#007aff">${I.chat}</span><span class="tx">문자 보내기<small class="mono">${ph}</small></span><i class="chev"></i></a>`
+          : kv('휴대폰 번호','미등록')}</div>
+        <div class="gtitle">이용</div><div class="list">${kv('예약',`${m.resv_count||0}회`)}${kv('이번 달 이용',minLabel(m.month_min))}${kv('누적 이용',minLabel(m.total_min))}</div>
+        <div class="gtitle">신고</div><div class="list">${kv('받은 신고',`${m.report_count||0}회`)}${kv('신고한 횟수',`${m.filed_count||0}회`)}</div>
+        <div class="gtitle">가입</div><div class="list">${kv('가입일',m.created_at?new Date(m.created_at).toLocaleDateString('ko-KR'):'—')}</div>
+        ${m.is_admin?'':`<div class="list" style="margin-top:30px"><button class="row center noic" id="msReset">비밀번호 초기화</button></div>
+        <div class="list" style="margin-top:12px"><button class="row dan noic" id="msDel">탈퇴시키기</button></div>`}
+      </div></div>`, {sheet:true});
+    $("#msClose").onclick=hideOv; sheetDrag($("#sheet"));
+    if($("#msReset")) $("#msReset").onclick=()=>askReset(m.student_no, m.name);
+    if($("#msDel")) $("#msDel").onclick=()=>askDeleteMember(m.student_no, m.name);
+  }
   // 관리자: 회원 탈퇴시키기 — 모든 데이터 삭제(관리자 계정·본인은 서버에서 차단)
   function askDeleteMember(sno,name){
     confirmSheet('회원 탈퇴',`${esc(name||sno)}님(<span class="mono">${esc(sno)}</span>)을 탈퇴시킬까요?<br>계정과 이용 기록이 <b>모두 삭제</b>되고 되돌릴 수 없어요.`,'탈퇴시키기',true,async()=>{
@@ -1034,7 +1072,7 @@
     $("#bk").onclick=screenHome;
     let r=null; try{ r=await rpc('admin_log_list',{p_pin:''}); }catch(e){}
     const rows=(r&&r.rows)||[]; const b=$("#logbody"); if(!b) return;
-    b.innerHTML= rows.length? `<div class="gtitle">최근 관리 작업</div><div class="agroup" style="margin-top:0">${rows.map(x=>`<div class="logrow"><b>${esc(ACT_KO[x.action]||x.action)}</b><time>${new Date(x.at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</time>${x.detail?`<p>${esc(logDetail(x))}</p>`:''}</div>`).join('')}</div>`
+    b.innerHTML= rows.length? `<div class="gtitle">최근 관리 작업</div><div class="agroup" style="margin-top:0">${rows.map(x=>`<div class="logrow"><b>${esc(ACT_KO[x.action]||x.action)}</b><time>${dtK(x.at)}</time>${x.detail?`<p>${esc(logDetail(x))}</p>`:''}</div>`).join('')}</div>`
       : '<p class="empty" style="padding:24px 0">관리 기록이 없어요</p>'; }
 
   let ACFG={};
@@ -1186,7 +1224,8 @@
       <p class="s">${signup?'학번·이름·비밀번호로 가입하세요':'학번과 비밀번호로 로그인하세요'}</p>
       <div class="group">
         <div class="f"><input id="sno" inputmode="numeric" autocomplete="username" placeholder="학번" enterkeyhint="next"></div>
-        ${signup?`<div class="f"><input id="nm" autocomplete="name" placeholder="이름" enterkeyhint="next"></div>`:''}
+        ${signup?`<div class="f"><input id="nm" autocomplete="name" placeholder="이름" enterkeyhint="next"></div>
+        <div class="f"><input id="ph" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="휴대폰 번호" maxlength="13" enterkeyhint="next"></div>`:''}
         <div class="f"><input id="pw" type="password" autocomplete="${signup?'new-password':'current-password'}" placeholder="${signup?'비밀번호 (6자 이상)':'비밀번호'}" enterkeyhint="${signup?'next':'go'}"></div>
         ${signup?`<div class="f"><input id="pw2" type="password" autocomplete="new-password" placeholder="비밀번호 확인" enterkeyhint="go"></div>`:''}
       </div>
@@ -1195,23 +1234,32 @@
       <button class="btn" id="go">${signup?'가입하고 시작':'로그인'}</button>
       <button class="link" id="swap">${signup?'이미 계정이 있어요 · 로그인':'계정이 없나요? 회원가입'}</button>
       ${!signup?`<button class="link sub" id="pwreset">비밀번호를 잊으셨나요?</button>`:''}
-      ${signup?`<p class="note">가입하면 좌석 예약·알림을 위한 학번·이름 수집·이용에 동의하게 돼요.<br>탈퇴하면 모든 정보가 바로 삭제돼요.</p>`:''}
+      ${signup?`<p class="note">가입하면 좌석 예약·알림과 신고 처리 시 연락을 위한<br>학번·이름·휴대폰 번호 수집·이용에 동의하게 돼요.<br>탈퇴하면 모든 정보가 바로 삭제돼요.</p>`:''}
     </div></div>`;
-    const upd=()=>{ const ok=$("#sno").value.trim() && $("#pw").value.length>0 && (!signup || ($("#nm").value.trim() && $("#pw2").value.length>0)); $("#go").classList.toggle('on',!!ok); };
+    const upd=()=>{ const ok=$("#sno").value.trim() && $("#pw").value.length>0 && (!signup || ($("#nm").value.trim() && $("#ph").value.trim() && $("#pw2").value.length>0)); $("#go").classList.toggle('on',!!ok); };
     const ins=[...screen.querySelectorAll('.group input')];
     ins.forEach((el,ix)=>{ el.oninput=upd;
       el.addEventListener('keydown',e=>{ if(e.key==='Enter' && !e.isComposing){ e.preventDefault(); if(ix<ins.length-1) ins[ix+1].focus(); else submitAuth(); } }); });
     upd();
+    if($("#ph")) phoneInput($("#ph"));
     $("#swap").onclick=()=>{ mode=signup?'login':'signup'; screenAuth(); };
     if($("#pwreset")) $("#pwreset").onclick=openContact;
     if($("#autosw")) $("#autosw").onclick=()=>{ autoLogin=!autoLogin; const s=$("#autosw"); s.classList.toggle('on',autoLogin); s.setAttribute('aria-checked',String(autoLogin)); };
     $("#go").onclick=submitAuth;
   }
+  // 휴대폰 번호: 숫자만 비교(010-1234-5678 · 01X 구번호 포함), 저장·표시는 하이픈 형식
+  function phoneDigits(s){ return String(s||'').replace(/\D/g,''); }
+  function validPhone(s){ return /^01[016789]\d{7,8}$/.test(phoneDigits(s)); }
+  function fmtPhone(s){ const d=phoneDigits(s).slice(0,11); if(d.length<=3) return d;
+    const mid=(d.startsWith('010')||d.length===11)?4:3;
+    return d.length<=3+mid ? d.slice(0,3)+'-'+d.slice(3) : d.slice(0,3)+'-'+d.slice(3,3+mid)+'-'+d.slice(3+mid); }
+  function phoneInput(el){ el.addEventListener('input',()=>{ const f=fmtPhone(el.value); if(f!==el.value) el.value=f; }); }
   function validSno(s){ if(!/^\d{9}$/.test(s)) return false; const y=+s.slice(0,4); return y>=2017 && y<=new Date().getFullYear(); }   // 학번: 9자리, 앞4=년도(2017~올해), 뒤5=숫자
   async function submitAuth(){
     const sno=$("#sno").value.trim(), pw=$("#pw").value;
     if(!sno){ msg('학번을 입력하세요'); return; }
     if(mode==='signup' && !$("#nm").value.trim()){ msg('이름을 입력하세요'); return; }
+    if(mode==='signup' && !validPhone($("#ph").value)){ msg('휴대폰 번호를 정확히 입력해 주세요\n예: 010-1234-5678'); return; }
     if(pw.length<6){ msg('비밀번호는 6자 이상이어야 해요'); return; }
     if(mode==='signup' && pw!==$("#pw2").value){ msg('비밀번호가 서로 달라요. 다시 확인해 주세요'); return; }
     if(mode==='signup' && !validSno(sno)){ msg('유효하지 않은 학번이에요'); return; }
@@ -1219,9 +1267,9 @@
       saveSession({access_token:'demo',user:{id:'demo'}}); enter(); return; }
     $("#go").disabled=true;
     try{
-      if(mode==='signup'){ const nm=$("#nm").value.trim();
+      if(mode==='signup'){ const nm=$("#nm").value.trim(), ph=fmtPhone($("#ph").value);
         const s=await auth('signup',{email:synthEmail(sno),password:pw});
-        if(s.access_token){ saveSession(s); await upsertProfile(sno,nm); enter(); }
+        if(s.access_token){ saveSession(s); await upsertProfile(sno,nm,ph); enter(); }
         else { mode='login'; screenAuth(); msg('가입이 완료됐어요. 로그인해 주세요',true); }
       } else {
         try{ localStorage.setItem(KEY_AUTO, autoLogin?'1':'0'); }catch(_){}
@@ -1230,24 +1278,27 @@
     }catch(e){ msg(e instanceof NetErr?'인터넷 연결을 확인해 주세요':loginErr(String(e))); } finally{ const g=$("#go"); if(g) g.disabled=false; }
   }
   function loginErr(e){ if(/Invalid login/i.test(e)) return '학번 또는 비밀번호가 올바르지 않아요'; if(/already registered/i.test(e)) return '이미 가입된 학번이에요. 로그인해 주세요'; return e; }
-  async function upsertProfile(sno,nm){
+  async function upsertProfile(sno,nm,ph){
     if(!session||!session.user){ throw new Error('세션이 만료됐어요. 다시 로그인해 주세요.'); }
     const r=await net(`${SUPABASE_URL}/rest/v1/profiles`,{method:'POST',headers:{...authH(),"Prefer":"resolution=merge-duplicates"},
-      body:JSON.stringify({id:session.user.id,student_no:sno,name:nm,consent_at:new Date().toISOString()})});
+      body:JSON.stringify({id:session.user.id,student_no:sno,name:nm,phone:ph||null,consent_at:new Date().toISOString()})});
     if(!r.ok) throw new Error(await r.text());
   }
   function screenProfile(){
     clearTimers();
     screen.innerHTML=`<div class="auth"><div class="authbox"><h1>프로필 설정</h1><p class="s">처음 한 번만 입력하면 돼요</p>
       <div class="group"><div class="f"><input id="sno" inputmode="numeric" placeholder="학번"></div>
-        <div class="f"><input id="nm" autocomplete="name" placeholder="이름"></div></div>
+        <div class="f"><input id="nm" autocomplete="name" placeholder="이름"></div>
+        <div class="f"><input id="ph" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="휴대폰 번호" maxlength="13"></div></div>
       <div id="msg" class="msg" role="alert"></div>
-      <button class="btn on" id="save">저장</button></div></div>`;
-    const s2=$("#sno"), n2=$("#nm");
+      <button class="btn on" id="save">저장</button>
+      <p class="note">휴대폰 번호는 신고 처리 시 연락에만 사용해요.</p></div></div>`;
+    const s2=$("#sno"), n2=$("#nm"), h2=$("#ph"); phoneInput(h2);
     $("#save").onclick=async()=>{ const sno=s2.value.trim(),nm=n2.value.trim();
       if(!sno||!nm){ msg('학번과 이름을 입력하세요'); return; }
       if(!validSno(sno)){ msg('유효하지 않은 학번이에요'); return; }
-      try{ await upsertProfile(sno,nm); enter(); }catch(e){ msg(e instanceof NetErr?'인터넷 연결을 확인해 주세요':'저장하지 못했어요'); } };
+      if(!validPhone(h2.value)){ msg('휴대폰 번호를 정확히 입력해 주세요\n예: 010-1234-5678'); return; }
+      try{ await upsertProfile(sno,nm,fmtPhone(h2.value)); enter(); }catch(e){ msg(e instanceof NetErr?'인터넷 연결을 확인해 주세요':'저장하지 못했어요'); } };
   }
 
   function enter(){ hideOv(); screenHome(); }
