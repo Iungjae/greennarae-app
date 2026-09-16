@@ -487,11 +487,11 @@
 
   // ── 타이머/오버레이/토스트 ──
   let timers=[]; function clearTimers(){ timers.forEach(clearInterval); timers=[]; stopQR(); }
-  function showOv(html,opt){ ov.className='ov'+(opt&&opt.sheet?' sheetmode':''); ov.innerHTML='<div class="ovbg"></div>'+html; ov.hidden=false; ov.querySelector('.ovbg').onclick=hideOv; }
-  function hideOv(){ hideOv2(); ov.hidden=true; ov.innerHTML=''; ov.className='ov'; }
+  function showOv(html,opt){ if(ov.hidden) navPush(); ov.className='ov'+(opt&&opt.sheet?' sheetmode':''); ov.innerHTML='<div class="ovbg"></div>'+html; ov.hidden=false; ov.querySelector('.ovbg').onclick=hideOv; }
+  function hideOv(){ var was=!ov.hidden; hideOv2(); ov.hidden=true; ov.innerHTML=''; ov.className='ov'; if(was) navPop(); }
   //  회원 정보처럼 이미 떠 있는 시트를 그대로 두고 그 위에 겹쳐 띄울 때
-  function showOv2(html,opt){ ov2.className='ov'+(opt&&opt.sheet?' sheetmode':''); ov2.innerHTML='<div class="ovbg"></div>'+html; ov2.hidden=false; ov2.querySelector('.ovbg').onclick=hideOv2; }
-  function hideOv2(){ if(!ov2) return; ov2.hidden=true; ov2.innerHTML=''; ov2.className='ov'; }
+  function showOv2(html,opt){ if(ov2.hidden) navPush(); ov2.className='ov'+(opt&&opt.sheet?' sheetmode':''); ov2.innerHTML='<div class="ovbg"></div>'+html; ov2.hidden=false; ov2.querySelector('.ovbg').onclick=hideOv2; }
+  function hideOv2(){ if(!ov2) return; var was=!ov2.hidden; ov2.hidden=true; ov2.innerHTML=''; ov2.className='ov'; if(was) navPop(); }
   let toastT;
   function toast(m,kind){   // kind: 'ok' | 'err'(또는 true) | 'info'(기본, false 는 ok)
     let el=$("#toast"); if(!el){ el=document.createElement('div'); el.id='toast'; el.setAttribute('role','status'); el.setAttribute('aria-live','polite'); document.body.appendChild(el); }
@@ -567,6 +567,7 @@
 
   // ── 홈 ──
   async function screenHome(){
+    if($("#screen .hd .back")) navPop();   // 앱 안의 '뒤로' 버튼으로 나온 경우, 쌓아 둔 기록도 한 겹 되돌림
     clearTimers();
     screen.innerHTML=`
       <div class="hd">${LOGO}<h1>그린나래</h1><button class="menu" id="menuBtn" aria-label="메뉴">${I.more}</button></div>
@@ -1129,7 +1130,8 @@
       toast(okOf(r)?'반영했어요':(errOf(r)||'반영하지 못했어요'), okOf(r)?'ok':'err');
       await loadSeatsAdmin(); if(after) after();
     }catch(e){ toast(netMsg(e),'err'); } };
-    if(a==='end') confirmSheet('강제 퇴실',`${esc(seat)}번 좌석을 강제로 퇴실시킬까요?`,'퇴실',true,async()=>{ hideOv(); run(); });
+    if(a==='end'){ confirmSheet('강제 퇴실',`${esc(seat)}번 좌석을 강제로 퇴실시킬까요?`,'퇴실',true,async()=>{ hideOv(); run(); });
+      if($("#cno")) $("#cno").onclick=()=>openSeatAdmin(seat); }   // 취소하면 좌석 창으로 되돌아감
     else run(); }
 
   function screenMembers(){ clearTimers();
@@ -1513,23 +1515,41 @@
 
   // ── 휴대폰 뒤로가기 ── 열린 창 → 서브화면 → 홈 순서로 한 단계씩. 홈에서 두 번 눌러야 닫힘
   //   여분 기록(센티넬)을 항상 하나 쌓아 둔다. 이게 없으면 뒤로가기 한 번에 앱이 그대로 꺼진다.
-  let __gnBack=0, __gnAt=0;
-  function armBack(){ try{ if(!history.state || !history.state.gn) history.pushState({gn:1},''); }catch(_){} }
-  armBack();
-  window.addEventListener('pageshow', armBack);                       // 복귀·복원으로 보호막이 사라진 경우
-  document.addEventListener('pointerdown', armBack, true);            // 화면을 만질 때마다 확인 — 이때 만든 기록은 브라우저가 건너뛰지 않는다
+  //  뒤로가기가 눌린 다음에 기록을 쌓으면 브라우저가 '가둬두려는 수작'으로 보고 건너뛴다.
+  //  그래서 기록은 반드시 사용자가 누르는 그 순간(화면·창을 여는 시점)에 미리 쌓아 둔다.
+  //  뒤로가기가 오면 쌓아 둔 걸 한 겹씩 쓰기만 하고, 새로 쌓지 않는다.
+  var __gnBack=0, __gnAt=0, __inPop=false, __skipPop=0, __pendPop=0;
+  function navPush(){ if(__pendPop>0){ __pendPop--; return; }              // 닫자마자 다시 여는 경우(메뉴 → 화면)는 서로 상쇄
+    try{ history.pushState({gn:(history.state&&history.state.gn||0)+1},''); }catch(_){} }
+  function navGuard(){ try{ if(!history.state||!history.state.gn) navPush(); }catch(_){} }   // 홈에서도 한 겹은 두기
+  function navPop(){ if(__inPop) return;                                  // 뒤로가기로 닫히는 중이면 이미 한 겹 쓴 것
+    __pendPop++;                                                           // 바로 되돌리지 않고 한 박자 미룬다(닫고 바로 여는 경우 상쇄되게)
+    setTimeout(function(){ if(__pendPop<=0) return; __pendPop--;
+      if(history.state && history.state.gn){ __skipPop++; try{ history.back(); }catch(_){ __skipPop--; } } },0); }
+  document.addEventListener('pointerdown', navGuard, true);
+  window.addEventListener('pageshow', navGuard);
   window.addEventListener('popstate', function(){
+    if(__skipPop>0){ __skipPop--; return; }                           // 앱이 스스로 되돌린 것
     var t=Date.now();
-    if(t-__gnAt<400){ armBack(); return; }                            // 한 번 누른 게 두 번 들어오는 기기 방지
-    __gnAt=t;
-    if(ov2 && !ov2.hidden){ hideOv2(); armBack(); return; }           // ① 겹쳐 뜬 창 먼저
-    if(ov && !ov.hidden){ hideOv(); armBack(); return; }              // ② 모달·시트 닫기
-    if(document.querySelector('#screen .hd .back')){ screenHome(); armBack(); return; }   // ③ 서브화면 → 홈
-    if(t-__gnBack<2500) return;                                       // ⑤ 두 번째 → 보호막을 다시 쌓지 않으므로 브라우저가 그대로 닫음
-    __gnBack=t;                                                       // ④ 홈·로그인에서 한 번 → 안내만
-    try{ toast('뒤로 한 번 더 누르면 닫혀요'); }catch(_){}
-    setTimeout(function(){ if(Date.now()-__gnBack>=2500) armBack(); },2600);   // 안 닫았으면 다시 지켜 줌
+    if(t-__gnAt<400) return;                                          // 한 번 누른 게 두 번 들어오는 기기 방지
+    __gnAt=t; __inPop=true;
+    try{
+      if(ov2 && !ov2.hidden){ hideOv2(); return; }                    // ① 겹쳐 뜬 창 먼저
+      if(ov && !ov.hidden){ hideOv(); return; }                       // ② 모달·시트 닫기
+      if(document.querySelector('#screen .hd .back')){ screenHome(); return; }   // ③ 서브화면 → 홈
+      if(t-__gnBack<2500) return;                                     // ⑤ 두 번째 → 남은 기록이 없으면 브라우저가 그대로 닫음
+      __gnBack=t;                                                     // ④ 홈·로그인에서 한 번 → 안내만
+      try{ toast('뒤로 한 번 더 누르면 닫혀요'); }catch(_){}
+    } finally { __inPop=false; }
   });
+
+  //  사용자가 눌러서 들어가는 화면들 — 들어가는 순간(터치 안에서) 기록을 하나 쌓아 둔다
+  (function(){ function wrap(f){ return function(){ navPush(); return f.apply(this,arguments); }; }
+    screenZones=wrap(screenZones); screenHistory=wrap(screenHistory); screenReport=wrap(screenReport);
+    screenNotices=wrap(screenNotices); screenNoticeAdmin=wrap(screenNoticeAdmin); screenReportsAdmin=wrap(screenReportsAdmin);
+    screenSeatsAdmin=wrap(screenSeatsAdmin); screenMembers=wrap(screenMembers); screenStatsAdmin=wrap(screenStatsAdmin);
+    screenAdminLog=wrap(screenAdminLog); screenConfigAdmin=wrap(screenConfigAdmin);
+  })();
 
   // ── 시작 ── (자동 로그인: 세션 있으면 만료 확인 → 필요시 토큰 갱신 후 홈. 연결 실패면 로그아웃하지 않고 대기)
   async function start(){
