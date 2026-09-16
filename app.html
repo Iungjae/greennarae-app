@@ -239,6 +239,7 @@
   .agroup{margin:10px 16px 0;background:var(--card);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
   .agroup>*+*{border-top:1px solid var(--sep)}
   .rowbtns{display:flex;gap:8px;flex:0 0 auto}
+  .sarsn{color:var(--ink)!important;font-size:15px!important;margin-top:3px}   /* 점검 사유: 값처럼 보이게, 길면 줄바꿈 */
   .adbtn{min-height:44px;min-width:52px;padding:0 13px;border:0;border-radius:10px;background:var(--sub);font-size:14px;font-weight:600;color:var(--ink);white-space:nowrap}
   .adbtn.dan{background:var(--red-bg);color:var(--red)}
   .adbtn:active{opacity:.6} .adbtn:disabled{opacity:.4}
@@ -1036,8 +1037,11 @@
     const kv=(k,v)=>`<div class="row noic"><span class="tx">${k}</span><span class="val">${v}</span></div>`;
     const en=cur?cur.end_at:s.end_at, rem=(busy&&en)?Math.max(0,Math.round((new Date(en).getTime()-now)/60000)):null;
     const d=cur?phoneDigits(cur.phone):'';
+    const brsn=(r&&okOf(r)&&r.block_reason)||'', bat=(r&&okOf(r)&&r.block_at)||'';
     const head=`<div class="list" style="margin-top:6px">${kv('상태',
-      blocked?'<span class="tag rep">점검 중</span>':busy?'<span class="tag amb">이용 중</span>':'<span class="tag adm">빈자리</span>')}</div>`;
+      blocked?'<span class="tag rep">점검 중</span>':busy?'<span class="tag amb">이용 중</span>':'<span class="tag adm">빈자리</span>')}
+      ${blocked&&brsn?`<div class="row noic"><span class="tx">점검 사유<small class="sarsn">${esc(brsn)}</small></span></div>`:''}
+      ${blocked&&bat?kv('점검 시작',`<span class="mono">${dtK(bat)}</span>`):''}</div>`;
     const detail=[
       cur&&cur.start_at?kv('시작',`<span class="mono">${hm(cur.start_at)}</span>`):'',
       en?kv('종료',`<span class="mono">${hm(en)}</span>`):'',
@@ -1058,7 +1062,7 @@
     const again=()=>fillSeatAdmin(seat);
     if($("#saM10")) $("#saM10").onclick=()=>seatAdminAct('m10',seat,blocked,again);
     if($("#saP10")) $("#saP10").onclick=()=>seatAdminAct('p10',seat,blocked,again);
-    if($("#saBlk")) $("#saBlk").onclick=()=>seatAdminAct('blk',seat,blocked,again);
+    if($("#saBlk")) $("#saBlk").onclick=()=> blocked ? blockSeat(seat,false,null,again) : askBlock(seat);
     if($("#saEnd")) $("#saEnd").onclick=()=>seatAdminAct('end',seat,blocked,()=>openSeatAdmin(seat)); }   // 강제 퇴실은 확인창이 시트를 닫으므로 다시 열어 줌
 
   // 최근 24시간 이용·신고 기록(시간순)
@@ -1077,10 +1081,33 @@
         ${d?`<div class="rwa"><a class="adbtn" href="tel:${d}">전화</a><a class="adbtn" href="sms:${d}">문자</a><span class="rwp mono">${fmtPhone(d)}</span></div>`:'<div class="rwp">휴대폰 번호 미등록</div>'}</div></div>`;
     }).join('')}</div>`; }
 
+  // 점검 설정: 사유를 받아서 저장(좌석을 누르면 그대로 보임)
+  const BLOCK_RSN=['콘센트 고장','책상·의자 파손','조명 고장','청소·정비'];
+  function askBlock(seat){
+    showOv(`<div class="confirm rpt"><h3>점검 설정</h3><p>${esc(seat)}번 좌석을 점검 중으로 바꿔요<br>사유는 좌석을 눌렀을 때 보여요</p>
+      <div class="reasons">${BLOCK_RSN.map(x=>`<button data-r="${esc(x)}">${esc(x)}</button>`).join('')}</div>
+      <input class="pwin" id="brsn" placeholder="직접 입력" maxlength="40" autocomplete="off" enterkeyhint="done">
+      <div class="cb"><button class="cc" id="bno">취소</button><button class="ok" id="byes" disabled>점검 설정</button></div></div>`);
+    const inp=$("#brsn"), ok=$("#byes"), btns=[...ov.querySelectorAll('.reasons button')];
+    const sync=()=>{ ok.disabled=!inp.value.trim(); };
+    btns.forEach(b=>b.onclick=()=>{ btns.forEach(x=>x.classList.remove('on')); b.classList.add('on'); inp.value=b.dataset.r; sync(); });
+    inp.addEventListener('input',()=>{ btns.forEach(x=>x.classList.remove('on')); sync(); });
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.isComposing&&!ok.disabled) ok.click(); });
+    $("#bno").onclick=()=>openSeatAdmin(seat);   // 취소하면 좌석 창으로 되돌아감
+    ok.onclick=()=>{ const v=inp.value.trim(); if(!v) return; ok.disabled=true; hideOv(); blockSeat(seat,true,v,()=>openSeatAdmin(seat)); }; }
+
+  async function blockSeat(seat,on,reason,after){
+    try{ let r;
+      try{ r=await rpc('me_block_seat',{p_seat_id:seat,p_on:on,p_reason:reason||null}); }
+      catch(e){ if(e instanceof NetErr) throw e;
+        r=await rpc('admin_block',{p_pin:'',p_seat:seat,p_blocked:on}); }   // upgrade_v8 적용 전 폴백(사유 없이 처리)
+      toast(okOf(r)?(on?'점검 중으로 바꿨어요':'점검을 해제했어요'):(errOf(r)||'반영하지 못했어요'), okOf(r)?'ok':'err');
+      await loadSeatsAdmin(); if(after) after();
+    }catch(e){ toast(netMsg(e),'err'); } }
+
   async function seatAdminAct(a,seat,blocked,after){
     const run=async()=>{ try{ let r;
       if(a==='end') r=await rpc('admin_end',{p_pin:'',p_seat:seat});
-      else if(a==='blk') r=await rpc('admin_block',{p_pin:'',p_seat:seat,p_blocked:!blocked});
       else r=await rpc('admin_adjust',{p_pin:'',p_seat:seat,p_delta:a==='p10'?10:-10});
       toast(okOf(r)?'반영했어요':(errOf(r)||'반영하지 못했어요'), okOf(r)?'ok':'err');
       await loadSeatsAdmin(); if(after) after();
