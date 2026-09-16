@@ -297,6 +297,7 @@
   .logrow{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 10px;padding:11px 14px}
   .logrow b{font-size:15px;font-weight:600} .logrow time{font-size:13px;color:var(--ink2);text-align:right;white-space:nowrap}
   .logrow p{grid-column:1 / -1;margin:0;font-size:14px;color:var(--ink2);line-height:1.45}
+  .logrow p.by{font-size:13px;color:var(--ink3);margin-top:2px} .logrow p.by .mono{margin-left:5px}
   .srow2{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px;padding:10px 14px}
   .srow2{flex-wrap:wrap} .srow2 .sl{flex:1 1 140px;font-size:16px;min-width:0} .srow2>.stpr,.srow2>.seg,.srow2>.adbtn,.srow2>.sw{margin-left:auto} .srow2 .sl small{display:block;font-size:13px;color:var(--ink2);margin-top:2px;line-height:1.4}
   .stpr{display:flex;align-items:center;flex:0 0 auto;background:var(--sub);border-radius:10px}
@@ -1008,9 +1009,11 @@
     catch(e){ if(SEATROWS.length) return; }      // 새로고침 중 잠깐 끊긴 거면 보던 배치도를 그대로 둠
     const b=$("#zlist"); if(!b) return;
     if(!rows.length){ b.innerHTML='<p class="empty" style="padding:24px 0">좌석 정보를 불러오지 못했어요</p>'; return; }
-    try{ const bs=await rest(`seats?select=id,block_reason,block_at&is_blocked=eq.true`)||[];   // 점검 사유(칸이 없던 시절이면 그냥 건너뜀)
-      const m={}; bs.forEach(x=>m[x.id]=x);
-      rows.forEach(x=>{ const v=m[x.seat_id]; if(v){ x.block_reason=v.block_reason; x.block_at=v.block_at; } });
+    try{ let bs=null;                                   // 점검 사유·시각·지정자(관리자 전용)
+      try{ const br=await rpc('me_blocked_seats'); if(okOf(br)) bs=br.rows||[]; }catch(e){}
+      if(!bs) bs=(await rest(`seats?select=id,block_reason,block_at&is_blocked=eq.true`)||[]).map(x=>({seat_id:x.id,...x}));   // v9 적용 전 폴백
+      const m={}; bs.forEach(x=>m[x.seat_id]=x);
+      rows.forEach(x=>{ const v=m[x.seat_id]; if(v){ x.block_reason=v.block_reason; x.block_at=v.block_at; x.by_name=v.by_name; x.by_sno=v.by_sno; } });
     }catch(e){}
     SEATROWS=rows;
     const blk=rows.filter(r=>r.is_blocked).length, busy=rows.filter(r=>r.occupied&&!r.is_blocked).length;
@@ -1043,9 +1046,13 @@
     const d=cur?phoneDigits(cur.phone):'';
     const brsn=(r&&okOf(r)&&r.block_reason)||s.block_reason||'', bat=(r&&okOf(r)&&r.block_at)||s.block_at||'';
     const head=`<div class="list" style="margin-top:6px">${kv('상태',
-      blocked?'<span class="tag rep">점검 중</span>':busy?'<span class="tag amb">이용 중</span>':'<span class="tag adm">빈자리</span>')}
-      ${blocked&&brsn?`<div class="row noic"><span class="tx">점검 사유<small class="sarsn">${esc(brsn)}</small></span></div>`:''}
-      ${blocked&&bat?kv('점검 시작',`<span class="mono">${dtK(bat)}</span>`):''}</div>`;
+      blocked?'<span class="tag rep">점검 중</span>':busy?'<span class="tag amb">이용 중</span>':'<span class="tag adm">빈자리</span>')}</div>`;
+    const blkbox = !blocked ? '' : `<div class="gtitle">점검</div><div class="list"><div class="slit">
+      <div class="repwho" style="margin-top:0">
+        <div class="rwl">점검 사유</div>
+        <div class="rwn">${esc(brsn||'사유 없음')}</div>
+        <div class="rwp">${bat?esc(dtK(bat))+' 시작':'시작 시각 기록 없음'}${s.by_name?' · '+esc(s.by_name)+' 지정':(bat?' · 키오스크에서 설정':'')}</div>
+      </div></div></div>`;
     const detail=[
       cur&&cur.start_at?kv('시작',`<span class="mono">${hm(cur.start_at)}</span>`):'',
       en?kv('종료',`<span class="mono">${hm(en)}</span>`):'',
@@ -1062,7 +1069,7 @@
     const log = r===undefined ? '<p class="empty" style="padding:18px 0">기록 불러오는 중…</p>'
       : (!r||!okOf(r)) ? `<p class="empty" style="padding:18px 0">${esc(errOf(r)||'기록을 불러오지 못했어요')}</p>`
       : seatLogHTML(rows);
-    b.innerHTML = head + use + acts + '<div class="gtitle">최근 24시간</div>' + log;
+    b.innerHTML = head + blkbox + use + acts + '<div class="gtitle">최근 24시간</div>' + log;
     const again=()=>fillSeatAdmin(seat);
     if($("#saM10")) $("#saM10").onclick=()=>seatAdminAct('m10',seat,blocked,again);
     if($("#saP10")) $("#saP10").onclick=()=>seatAdminAct('p10',seat,blocked,again);
@@ -1159,7 +1166,9 @@
           <a class="row" href="sms:${d}"><span class="ic" style="background:#007aff">${I.chat}</span><span class="tx">문자 보내기<small class="mono">${ph}</small></span><i class="chev"></i></a>`
           : kv('휴대폰 번호','미등록')}</div>
         <div class="gtitle">이용</div><div class="list">${kv('예약',`${m.resv_count||0}회`)}${kv('이번 달 이용',minLabel(m.month_min))}${kv('누적 이용',minLabel(m.total_min))}</div>
-        <div class="gtitle">신고</div><div class="list">${kv('받은 신고',`${m.report_count||0}회`)}${kv('신고한 횟수',`${m.filed_count||0}회`)}</div>
+        <div class="gtitle">신고</div><div class="list">
+          <button class="row noic" id="msRecv"><span class="tx">받은 신고</span><span class="val">${m.report_count||0}회</span><i class="chev"></i></button>
+          <button class="row noic" id="msFiled"><span class="tx">신고한 횟수</span><span class="val">${m.filed_count||0}회</span><i class="chev"></i></button></div>
         <div class="gtitle">가입</div><div class="list">${kv('가입일',m.created_at?new Date(m.created_at).toLocaleDateString('ko-KR'):'—')}</div>
         ${canGrant?`<div class="gtitle">권한</div><div class="list">
           <div class="row noic"><span class="tx">관리자 권한<small>좌석 관리 · 민원 접수함 · 회원 조회 · 공지 · 설정</small></span>
@@ -1168,10 +1177,30 @@
         <div class="list" style="margin-top:12px"><button class="row dan noic" id="msDel">탈퇴시키기</button></div>`}
       </div></div>`, {sheet:true});
     $("#msClose").onclick=hideOv; sheetDrag($("#sheet"));
+    if($("#msRecv")) $("#msRecv").onclick=()=>openMemberReports(m,'received');
+    if($("#msFiled")) $("#msFiled").onclick=()=>openMemberReports(m,'filed');
     if($("#msAdm")) $("#msAdm").onclick=()=>askSetAdmin(m, !m.is_admin);
     if($("#msReset")) $("#msReset").onclick=()=>askReset(m.student_no, m.name);
     if($("#msDel")) $("#msDel").onclick=()=>askDeleteMember(m.student_no, m.name);
   }
+  // 회원이 받은 신고 / 신고한 내역 (신고자는 표시하지 않음)
+  async function openMemberReports(m,kind){
+    const t = kind==='filed' ? '신고한 내역' : '받은 신고';
+    showOv(`<div class="sheet" id="sheet" role="dialog" aria-label="${t}">
+      <div class="grab"><i></i></div>
+      <div class="shd"><b>${esc(m.name||m.student_no||'')}님 · ${t}</b><button id="mrClose">완료</button></div>
+      <div class="sbody" id="mrbody"><p class="empty" style="padding:24px 0">불러오는 중…</p></div></div>`, {sheet:true});
+    $("#mrClose").onclick=()=>openMemberSheet(m); sheetDrag($("#sheet"));
+    let r=null; try{ r=await rpc('me_member_reports',{p_student_no:m.student_no,p_kind:kind}); }catch(e){ r=null; }
+    const b=$("#mrbody"); if(!b) return;
+    if(!r||!okOf(r)){ b.innerHTML=`<p class="empty" style="padding:24px 0">${esc(errOf(r)||'불러오지 못했어요')}</p>`; return; }
+    const rows=r.rows||[];
+    b.innerHTML = rows.length ? `<div class="list" style="margin-top:6px">${rows.map(x=>`<div class="slit">
+      <div class="slt"><b>${dtK(x.at)}</b><span class="tag ${x.resolved_at?'gry':'rep'}">${x.resolved_at?'처리 완료':'처리 전'}</span></div>
+      <div class="slrsn">${esc(x.seat_id||'?')}번 좌석 · ${esc(x.reason||'기타')}</div>
+      ${x.detail?`<div class="sldet">${esc(x.detail)}</div>`:''}</div>`).join('')}</div>`
+      : `<p class="empty" style="padding:24px 0">${kind==='filed'?'신고한 내역이 없어요':'받은 신고가 없어요'}</p>`; }
+
   // 최고 관리자: 회원에게 관리자 권한 주기·빼기 (본인·최고 관리자 대상은 서버에서 차단)
   function askSetAdmin(m,on){
     const nm=esc(m.name||m.student_no);
@@ -1219,6 +1248,8 @@
   const CFG_KO={max_minutes:v=>`최대 이용 시간 ${v}분`,renew_window_min:v=>`연장 가능 시점 종료 ${v}분 전`,idle_return_sec:v=>`무동작 자동 복귀 ${v}초`,
     renew_mode:v=>`연장 방식 ${v==='add'?'남은 시간에 추가':'지금부터'}`,prevent_dup:v=>`한 사람 한 자리 ${v?'켬':'끔'}`,night_off:v=>`야간 화면 끄기 ${v?'켬':'끔'}`,
     daily_max_min:v=>`1일 최대 이용 ${+v>0?v+'분':'무제한'}`};
+  function logWho(x){ return x.actor_name ? `${esc(x.actor_name)}<span class="mono">${esc(x.actor_sno||'')}</span>`
+    : (x.actor_kind==='kiosk' ? '키오스크' : ''); }   // v9 이전 기록은 실행자가 없음
   function logDetail(x){ const d=String(x.detail||'');
     if(d.charAt(0)==='{'){ try{ const o=JSON.parse(d); return Object.keys(o).map(k=>CFG_KO[k]?CFG_KO[k](o[k]):'설정 값 변경').join(' · '); }catch(_){ return '설정 값 변경'; } }
     return d.replace(/^([A-Z]\d{1,2}) (-?\d+)분$/,(m,s,n)=>`${s}번 좌석 ${+n>0?'+':''}${n}분`); }
@@ -1227,7 +1258,7 @@
     $("#bk").onclick=screenHome;
     let r=null; try{ r=await rpc('admin_log_list',{p_pin:''}); }catch(e){}
     const rows=(r&&r.rows)||[]; const b=$("#logbody"); if(!b) return;
-    b.innerHTML= rows.length? `<div class="gtitle">최근 관리 작업</div><div class="agroup" style="margin-top:0">${rows.map(x=>`<div class="logrow"><b>${esc(ACT_KO[x.action]||x.action)}</b><time>${dtK(x.at)}</time>${x.detail?`<p>${esc(logDetail(x))}</p>`:''}</div>`).join('')}</div>`
+    b.innerHTML= rows.length? `<div class="gtitle">최근 관리 작업</div><div class="agroup" style="margin-top:0">${rows.map(x=>`<div class="logrow"><b>${esc(ACT_KO[x.action]||x.action)}</b><time>${dtK(x.at)}</time>${x.detail?`<p>${esc(logDetail(x))}</p>`:''}${logWho(x)?`<p class="by">${logWho(x)}</p>`:''}</div>`).join('')}</div>`
       : '<p class="empty" style="padding:24px 0">관리 기록이 없어요</p>'; }
 
   let ACFG={};
@@ -1474,16 +1505,21 @@
     showOv(`<div class="confirm"><h3>앱 설치</h3><p style="text-align:left;line-height:1.75">브라우저 메뉴(<b>⋮</b>)에서 <b>앱 설치</b> 또는 <b>홈 화면에 추가</b>를 눌러 주세요.<br><br>보이지 않으면 페이지를 새로고침한 뒤 다시 시도해 주세요.</p><div class="cb"><button class="ok" id="iok">확인</button></div></div>`); $("#iok").onclick=hideOv;
   }
 
-  // ── 휴대폰 뒤로가기: 모달/서브화면에서 앱이 꺼지지 않고 이전 화면으로 ──
-  try{ history.pushState({gn:1}, ''); }catch(_){}   // 센티넬 버퍼(뒤로 눌러도 바로 종료 안 되게)
-  let __gnBack=0;
+  // ── 휴대폰 뒤로가기 ── 열린 창 → 서브화면 → 홈 순서로 한 단계씩. 홈에서 두 번 눌러야 닫힘
+  //   여분 기록(센티넬)을 항상 하나 쌓아 둔다. 이게 없으면 뒤로가기 한 번에 앱이 그대로 꺼진다.
+  let __gnBack=0, __gnAt=0;
+  function armBack(){ try{ history.pushState({gn:1},''); }catch(_){} }
+  armBack();
+  window.addEventListener('pageshow', function(){                     // 복귀·뒤로가기 복원으로 센티넬이 사라진 경우 다시 쌓기
+    if(!history.state || !history.state.gn) armBack(); });
   window.addEventListener('popstate', function(){
-    if(ov && !ov.hidden){ hideOv(); try{history.pushState({gn:1},'');}catch(_){} return; }                    // 모달/메뉴 열림 → 닫기
-    if(document.querySelector('#screen .hd .back')){ screenHome(); try{history.pushState({gn:1},'');}catch(_){} return; }  // 서브화면 → 홈으로
-    if(isIOS){ try{history.back();}catch(_){} return; }                                                     // 아이폰엔 뒤로 버튼이 없음 → 안내 없이 그대로
-    var t=Date.now();                                                                                          // 안드로이드 홈/로그인 → 한 번 더 누르면 종료
-    if(t-__gnBack<2000){ try{history.back();}catch(_){} return; }
-    __gnBack=t; try{history.pushState({gn:1},'');}catch(_){}
+    var t=Date.now();
+    if(t-__gnAt<150){ armBack(); return; }                            // 제스처가 한 번에 두 번 들어오는 기기 방지
+    __gnAt=t;
+    if(ov && !ov.hidden){ hideOv(); armBack(); return; }              // ① 모달·시트 닫기
+    if(document.querySelector('#screen .hd .back')){ screenHome(); armBack(); return; }   // ② 서브화면 → 홈
+    if(t-__gnBack<2000){ try{history.back();}catch(_){} return; }     // ④ 두 번째 → 실제로 닫힘
+    __gnBack=t; armBack();                                            // ③ 홈·로그인에서 한 번 → 안내만
     try{ toast('뒤로 한 번 더 누르면 닫혀요'); }catch(_){}
   });
 
