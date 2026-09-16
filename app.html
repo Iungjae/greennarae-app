@@ -1008,6 +1008,10 @@
     catch(e){ if(SEATROWS.length) return; }      // 새로고침 중 잠깐 끊긴 거면 보던 배치도를 그대로 둠
     const b=$("#zlist"); if(!b) return;
     if(!rows.length){ b.innerHTML='<p class="empty" style="padding:24px 0">좌석 정보를 불러오지 못했어요</p>'; return; }
+    try{ const bs=await rest(`seats?select=id,block_reason,block_at&is_blocked=eq.true`)||[];   // 점검 사유(칸이 없던 시절이면 그냥 건너뜀)
+      const m={}; bs.forEach(x=>m[x.id]=x);
+      rows.forEach(x=>{ const v=m[x.seat_id]; if(v){ x.block_reason=v.block_reason; x.block_at=v.block_at; } });
+    }catch(e){}
     SEATROWS=rows;
     const blk=rows.filter(r=>r.is_blocked).length, busy=rows.filter(r=>r.occupied&&!r.is_blocked).length;
     b.innerHTML=`<div class="zsum2">이용 중 <b class="mono">${busy}</b>석 <span>· 빈자리 ${rows.length-busy-blk}석${blk?` · 점검 중 ${blk}석`:''}</span></div>
@@ -1037,7 +1041,7 @@
     const kv=(k,v)=>`<div class="row noic"><span class="tx">${k}</span><span class="val">${v}</span></div>`;
     const en=cur?cur.end_at:s.end_at, rem=(busy&&en)?Math.max(0,Math.round((new Date(en).getTime()-now)/60000)):null;
     const d=cur?phoneDigits(cur.phone):'';
-    const brsn=(r&&okOf(r)&&r.block_reason)||'', bat=(r&&okOf(r)&&r.block_at)||'';
+    const brsn=(r&&okOf(r)&&r.block_reason)||s.block_reason||'', bat=(r&&okOf(r)&&r.block_at)||s.block_at||'';
     const head=`<div class="list" style="margin-top:6px">${kv('상태',
       blocked?'<span class="tag rep">점검 중</span>':busy?'<span class="tag amb">이용 중</span>':'<span class="tag adm">빈자리</span>')}
       ${blocked&&brsn?`<div class="row noic"><span class="tx">점검 사유<small class="sarsn">${esc(brsn)}</small></span></div>`:''}
@@ -1099,8 +1103,8 @@
   async function blockSeat(seat,on,reason,after){
     try{ let r;
       try{ r=await rpc('me_block_seat',{p_seat_id:seat,p_on:on,p_reason:reason||null}); }
-      catch(e){ if(e instanceof NetErr) throw e;
-        r=await rpc('admin_block',{p_pin:'',p_seat:seat,p_blocked:on}); }   // upgrade_v8 적용 전 폴백(사유 없이 처리)
+      catch(e){ if(e instanceof NetErr || !/PGRST202|does not exist|Could not find/i.test(String(e&&e.message||e))) throw e;
+        r=await rpc('admin_block',{p_pin:'',p_seat:seat,p_blocked:on}); }   // 함수가 아직 없을 때만 폴백(사유 없이 처리)
       toast(okOf(r)?(on?'점검 중으로 바꿨어요':'점검을 해제했어요'):(errOf(r)||'반영하지 못했어요'), okOf(r)?'ok':'err');
       await loadSeatsAdmin(); if(after) after();
     }catch(e){ toast(netMsg(e),'err'); } }
