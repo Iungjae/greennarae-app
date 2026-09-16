@@ -332,6 +332,7 @@
   .msg.err{background:var(--red-bg);color:var(--red)} .msg.ok{background:var(--tint-bg);color:var(--tint-text)}
 
   /* ── 오버레이: 모달 · 메뉴 시트 · QR 크게 ── */
+  #ov2{z-index:70}   /* 회원 정보 위에 겹쳐 뜨는 층 */
   .ov{position:fixed;inset:0;z-index:60;display:flex;padding:16px;padding-top:calc(16px + env(safe-area-inset-top));padding-bottom:calc(16px + env(safe-area-inset-bottom))}
   .ov.sheetmode{padding:calc(10px + env(safe-area-inset-top)) 0 0}
   .ovbg{position:fixed;inset:0;background:var(--ov);animation:gnFade .2s ease}
@@ -395,11 +396,12 @@
 <div class="app"><div id="screen"></div></div>
 <div id="cfg" hidden><div>이 파일 상단의 <b>SUPABASE_URL / KEY</b> 두 줄을 채운 뒤 다시 열어주세요.</div></div>
 <div id="ov" class="ov" hidden></div>
+<div id="ov2" class="ov" hidden></div>   <!-- 시트 위에 또 뜨는 창(예: 회원 정보 → 받은 신고) -->
 
 <script>
 (function(){
   "use strict";
-  const $=s=>document.querySelector(s), screen=$("#screen"), ov=$("#ov");
+  const $=s=>document.querySelector(s), screen=$("#screen"), ov=$("#ov"), ov2=$("#ov2");
 
   // ── 화면 높이 보정 ──
   //  카톡 채널·전화 등 외부 앱에 갔다 돌아오면 일부 브라우저가 100dvh 를 옛 값(주소창 숨김 기준)으로 붙들고 있다.
@@ -415,6 +417,7 @@
     const px=h+'px', app=document.querySelector('.app');
     if(app&&app.style.height!==px) app.style.height=px;
     if(ov&&ov.style.height!==px) ov.style.height=px;              // 전체화면 시트도 같은 높이로
+    if(ov2&&ov2.style.height!==px) ov2.style.height=px;
   }
   function syncVHSoon(){ syncVH(); requestAnimationFrame(syncVH); [90,300,700].forEach(t=>setTimeout(syncVH,t)); }   // 복귀 직후 잠시 뒤에야 값이 확정되는 기기가 있음
   syncVH();
@@ -485,7 +488,10 @@
   // ── 타이머/오버레이/토스트 ──
   let timers=[]; function clearTimers(){ timers.forEach(clearInterval); timers=[]; stopQR(); }
   function showOv(html,opt){ ov.className='ov'+(opt&&opt.sheet?' sheetmode':''); ov.innerHTML='<div class="ovbg"></div>'+html; ov.hidden=false; ov.querySelector('.ovbg').onclick=hideOv; }
-  function hideOv(){ ov.hidden=true; ov.innerHTML=''; ov.className='ov'; }
+  function hideOv(){ hideOv2(); ov.hidden=true; ov.innerHTML=''; ov.className='ov'; }
+  //  회원 정보처럼 이미 떠 있는 시트를 그대로 두고 그 위에 겹쳐 띄울 때
+  function showOv2(html,opt){ ov2.className='ov'+(opt&&opt.sheet?' sheetmode':''); ov2.innerHTML='<div class="ovbg"></div>'+html; ov2.hidden=false; ov2.querySelector('.ovbg').onclick=hideOv2; }
+  function hideOv2(){ if(!ov2) return; ov2.hidden=true; ov2.innerHTML=''; ov2.className='ov'; }
   let toastT;
   function toast(m,kind){   // kind: 'ok' | 'err'(또는 true) | 'info'(기본, false 는 ok)
     let el=$("#toast"); if(!el){ el=document.createElement('div'); el.id='toast'; el.setAttribute('role','status'); el.setAttribute('aria-live','polite'); document.body.appendChild(el); }
@@ -1186,11 +1192,11 @@
   // 회원이 받은 신고 / 신고한 내역 (신고자는 표시하지 않음)
   async function openMemberReports(m,kind){
     const t = kind==='filed' ? '신고한 내역' : '받은 신고';
-    showOv(`<div class="sheet" id="sheet" role="dialog" aria-label="${t}">
+    showOv2(`<div class="sheet" id="sheet2" role="dialog" aria-label="${t}">
       <div class="grab"><i></i></div>
       <div class="shd"><b>${esc(m.name||m.student_no||'')}님 · ${t}</b><button id="mrClose">완료</button></div>
       <div class="sbody" id="mrbody"><p class="empty" style="padding:24px 0">불러오는 중…</p></div></div>`, {sheet:true});
-    $("#mrClose").onclick=()=>openMemberSheet(m); sheetDrag($("#sheet"));
+    $("#mrClose").onclick=hideOv2; sheetDrag($("#sheet2"));   // 닫으면 아래의 회원 정보가 그대로 남아 있음
     let r=null; try{ r=await rpc('me_member_reports',{p_student_no:m.student_no,p_kind:kind}); }catch(e){ r=null; }
     const b=$("#mrbody"); if(!b) return;
     if(!r||!okOf(r)){ b.innerHTML=`<p class="empty" style="padding:24px 0">${esc(errOf(r)||'불러오지 못했어요')}</p>`; return; }
@@ -1508,19 +1514,21 @@
   // ── 휴대폰 뒤로가기 ── 열린 창 → 서브화면 → 홈 순서로 한 단계씩. 홈에서 두 번 눌러야 닫힘
   //   여분 기록(센티넬)을 항상 하나 쌓아 둔다. 이게 없으면 뒤로가기 한 번에 앱이 그대로 꺼진다.
   let __gnBack=0, __gnAt=0;
-  function armBack(){ try{ history.pushState({gn:1},''); }catch(_){} }
+  function armBack(){ try{ if(!history.state || !history.state.gn) history.pushState({gn:1},''); }catch(_){} }
   armBack();
-  window.addEventListener('pageshow', function(){                     // 복귀·뒤로가기 복원으로 센티넬이 사라진 경우 다시 쌓기
-    if(!history.state || !history.state.gn) armBack(); });
+  window.addEventListener('pageshow', armBack);                       // 복귀·복원으로 보호막이 사라진 경우
+  document.addEventListener('pointerdown', armBack, true);            // 화면을 만질 때마다 확인 — 이때 만든 기록은 브라우저가 건너뛰지 않는다
   window.addEventListener('popstate', function(){
     var t=Date.now();
-    if(t-__gnAt<150){ armBack(); return; }                            // 제스처가 한 번에 두 번 들어오는 기기 방지
+    if(t-__gnAt<400){ armBack(); return; }                            // 한 번 누른 게 두 번 들어오는 기기 방지
     __gnAt=t;
-    if(ov && !ov.hidden){ hideOv(); armBack(); return; }              // ① 모달·시트 닫기
-    if(document.querySelector('#screen .hd .back')){ screenHome(); armBack(); return; }   // ② 서브화면 → 홈
-    if(t-__gnBack<2000){ try{history.back();}catch(_){} return; }     // ④ 두 번째 → 실제로 닫힘
-    __gnBack=t; armBack();                                            // ③ 홈·로그인에서 한 번 → 안내만
+    if(ov2 && !ov2.hidden){ hideOv2(); armBack(); return; }           // ① 겹쳐 뜬 창 먼저
+    if(ov && !ov.hidden){ hideOv(); armBack(); return; }              // ② 모달·시트 닫기
+    if(document.querySelector('#screen .hd .back')){ screenHome(); armBack(); return; }   // ③ 서브화면 → 홈
+    if(t-__gnBack<2500) return;                                       // ⑤ 두 번째 → 보호막을 다시 쌓지 않으므로 브라우저가 그대로 닫음
+    __gnBack=t;                                                       // ④ 홈·로그인에서 한 번 → 안내만
     try{ toast('뒤로 한 번 더 누르면 닫혀요'); }catch(_){}
+    setTimeout(function(){ if(Date.now()-__gnBack>=2500) armBack(); },2600);   // 안 닫았으면 다시 지켜 줌
   });
 
   // ── 시작 ── (자동 로그인: 세션 있으면 만료 확인 → 필요시 토큰 갱신 후 홈. 연결 실패면 로그아웃하지 않고 대기)
