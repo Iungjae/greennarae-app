@@ -394,6 +394,31 @@
 (function(){
   "use strict";
   const $=s=>document.querySelector(s), screen=$("#screen"), ov=$("#ov");
+
+  // ── 화면 높이 보정 ──
+  //  카톡 채널·전화 등 외부 앱에 갔다 돌아오면 일부 브라우저가 100dvh 를 옛 값(주소창 숨김 기준)으로 붙들고 있다.
+  //  그러면 앱 박스가 실제 화면보다 길어져 카드가 늘어나고, 잔여 좌석 줄이 아래로 밀려 가운데 정렬이 어긋난 것처럼 보인다.
+  //  → 돌아올 때마다 지금 실제로 보이는 높이를 재서 직접 고정한다. (JS 가 못 돌면 CSS 의 100dvh 가 그대로 쓰임)
+  function syncVH(){
+    const vv=window.visualViewport;
+    let h=Math.round(window.innerHeight||0);
+    if(vv&&vv.height&&(vv.scale||1)<=1.01) h=Math.min(h,Math.round(vv.height));   // 사파리 하단 툴바처럼 실제로 가려진 만큼은 빼고
+    if(h<200) return;                                             // 값이 이상하면 손대지 않음
+    const ae=document.activeElement, tn=ae&&ae.tagName;
+    if(tn==='INPUT'||tn==='TEXTAREA') return;                     // 키보드가 올라온 동안엔 건드리지 않음
+    const px=h+'px', app=document.querySelector('.app');
+    if(app&&app.style.height!==px) app.style.height=px;
+    if(ov&&ov.style.height!==px) ov.style.height=px;              // 전체화면 시트도 같은 높이로
+  }
+  function syncVHSoon(){ syncVH(); requestAnimationFrame(syncVH); [90,300,700].forEach(t=>setTimeout(syncVH,t)); }   // 복귀 직후 잠시 뒤에야 값이 확정되는 기기가 있음
+  syncVH();
+  addEventListener('resize',syncVH);
+  addEventListener('orientationchange',syncVHSoon);
+  addEventListener('pageshow',syncVHSoon);
+  addEventListener('focus',syncVHSoon);
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) syncVHSoon(); });
+  document.addEventListener('focusout',syncVHSoon);                  // 입력 중 회전 등으로 건너뛴 보정을 키보드가 내려간 뒤 마무리
+  if(window.visualViewport) visualViewport.addEventListener('resize',syncVH);
   const TEST = location.search.indexOf('test')>=0;   // ?test → QR 토큰 텍스트 노출(리더기 없이 테스트)
   const LOGO_PATHS='<path d="M32 52C32 45 30.5 39 33 32" stroke="#e0f7ec" stroke-width="4.2" stroke-linecap="round" fill="none"/><ellipse cx="23" cy="31" rx="10.5" ry="6.6" transform="rotate(-28 23 31)" fill="#5cc793"/><ellipse cx="41" cy="26" rx="12" ry="7.6" transform="rotate(32 41 26)" fill="#a9e5c8"/>';
   const LOGO=`<svg class="lg" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="15" fill="#1b5e43"/>${LOGO_PATHS}</svg>`;
