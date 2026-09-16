@@ -238,11 +238,7 @@
   #mbody,#sabody,#stbody,#cfgbody,#logbody,#repadmin{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding-bottom:calc(20px + env(safe-area-inset-bottom))}
   .agroup{margin:10px 16px 0;background:var(--card);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
   .agroup>*+*{border-top:1px solid var(--sep)}
-  .adrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:11px 14px}
-  .adseat{width:44px;font-weight:800;font-size:17px;color:var(--tint-text);font-variant-numeric:tabular-nums}
-  .adst{flex:1 1 130px;min-width:0;font-size:14px;color:var(--ink2);line-height:1.45}
-  .adst b{font-weight:600}
-  .adacts{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .rowbtns{display:flex;gap:8px;flex:0 0 auto}
   .adbtn{min-height:44px;min-width:52px;padding:0 13px;border:0;border-radius:10px;background:var(--sub);font-size:14px;font-weight:600;color:var(--ink);white-space:nowrap}
   .adbtn.dan{background:var(--red-bg);color:var(--red)}
   .adbtn:active{opacity:.6} .adbtn:disabled{opacity:.4}
@@ -279,7 +275,6 @@
   .slit .repwho{margin-top:9px}
   .tag.amb{background:var(--amber-bg);color:var(--amber)}
   .tag.gry{background:var(--track);color:var(--ink2)}   /* 회색 배지: 다크에서 카드색과 겹치지 않게 track 사용 */
-  .adrow.tap{cursor:pointer} .adrow.tap:active{background:var(--fill)}
   .repseat{flex:0 0 auto;min-width:48px;height:48px;padding:0 8px;border-radius:12px;background:var(--tint-bg);color:var(--tint-text);font-size:17px;font-weight:800;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
   .repinfo{flex:1;min-width:0}
   .reprsn{font-size:16px;font-weight:700}
@@ -1000,35 +995,78 @@
   // ── 관리자: 좌석 관리 / 회원 조회 / 통계 / 관리 기록 / 운영 설정 / 내보내기 ──
   function minLabel(m){ m=Math.max(0,Math.round(m||0)); const h=Math.floor(m/60); return h>0?(m%60?`${h}시간 ${m%60}분`:`${h}시간`):`${m}분`; }
 
+  // ── 좌석 관리: 배치도에서 좌석을 누르면 그 좌석의 모든 것(상태·이용자·관리·최근 24시간) ──
   function screenSeatsAdmin(){ clearTimers();
-    screen.innerHTML=`<div class="hd"><button class="back" id="bk">뒤로</button><h1>좌석 관리</h1></div><div id="sabody"><div class="empty" style="margin:24px 0">불러오는 중…</div></div>`;
-    $("#bk").onclick=screenHome; loadSeatsAdmin(); }
-  async function loadSeatsAdmin(){
-    let rows=[]; try{ rows=await rest(`seat_status?select=seat_id,zone,occupied,is_blocked,end_at,sno_masked&order=sort`)||[]; }catch(e){}
-    const b=$("#sabody"); if(!b) return;
-    b.innerHTML = rows.length ? `<p class="rphint" style="padding:2px 16px 10px">좌석을 누르면 최근 24시간 기록을 볼 수 있어요</p><div class="agroup">${rows.map(s=>{ const busy=!!s.occupied;
-      const use = busy ? `<b style="color:var(--amber)">이용 중</b>${s.sno_masked?' · <span class="mono">'+esc(s.sno_masked)+'</span>':''}<br>종료 <span class="mono">${s.end_at?hm(s.end_at):''}</span>` : '';
-      const st = s.is_blocked ? `<b style="color:var(--red)">점검 중</b>${busy?'<br>'+use:''}` : busy ? use : '<b style="color:var(--tint-text)">빈자리</b>';
-      const acts=`${busy?`<button class="adbtn dan" data-a="end" data-s="${s.seat_id}">강제 퇴실</button><button class="adbtn" data-a="m10" data-s="${s.seat_id}">−10분</button><button class="adbtn" data-a="p10" data-s="${s.seat_id}">+10분</button>`:''}<button class="adbtn" data-a="blk" data-s="${s.seat_id}" data-b="${s.is_blocked?1:0}">${s.is_blocked?'점검 해제':'점검'}</button>`;
-      return `<div class="adrow tap" data-seat="${s.seat_id}"><div class="adseat">${s.seat_id}</div><div class="adst">${st}</div><div class="adacts">${acts}</div></div>`; }).join('')}</div>`
-      : '<p class="empty" style="padding:24px 0">좌석 정보를 불러오지 못했어요</p>';
-    b.querySelectorAll('.adbtn').forEach(x=>x.onclick=()=>seatAdminAct(x.dataset.a,x.dataset.s,x.dataset.b==='1'));
-    b.querySelectorAll('.adrow.tap').forEach(x=>x.onclick=e=>{ if(e.target.closest('.adbtn')) return; openSeatLog(x.dataset.seat); }); }
+    screen.innerHTML=`<div class="hd"><button class="back" id="bk">뒤로</button><h1>좌석 관리</h1></div>
+      <div id="zlist"><div class="empty" style="margin:24px 0">불러오는 중…</div></div>`;
+    $("#bk").onclick=screenHome; loadSeatsAdmin(); timers.push(setInterval(loadSeatsAdmin,10000)); }
 
-  // 관리자: 좌석 최근 24시간 기록(이용·신고) — 좌석 관리에서 좌석 줄을 누르면 열림
-  async function openSeatLog(seat){
-    showOv(`<div class="sheet" id="sheet" role="dialog" aria-label="좌석 기록">
+  let SEATROWS=[];
+  async function loadSeatsAdmin(){
+    let rows=[]; try{ rows=await rest(`seat_status?select=seat_id,zone,occupied,is_blocked,end_at,sno_masked&order=sort`)||[]; }
+    catch(e){ if(SEATROWS.length) return; }      // 새로고침 중 잠깐 끊긴 거면 보던 배치도를 그대로 둠
+    const b=$("#zlist"); if(!b) return;
+    if(!rows.length){ b.innerHTML='<p class="empty" style="padding:24px 0">좌석 정보를 불러오지 못했어요</p>'; return; }
+    SEATROWS=rows;
+    const blk=rows.filter(r=>r.is_blocked).length, busy=rows.filter(r=>r.occupied&&!r.is_blocked).length;
+    b.innerHTML=`<div class="zsum2">이용 중 <b class="mono">${busy}</b>석 <span>· 빈자리 ${rows.length-busy-blk}석${blk?` · 점검 중 ${blk}석`:''}</span></div>
+      ${mapHTML(rows,true)}
+      <p class="zhint2">좌석을 누르면 <b>이용 정보와 관리</b>가 열려요</p>`;
+    b.querySelectorAll('.mseat[data-id]').forEach(el=>el.onclick=()=>openSeatAdmin(el.dataset.id)); }
+
+  function openSeatAdmin(seat){
+    showOv(`<div class="sheet" id="sheet" role="dialog" aria-label="좌석 관리">
       <div class="grab"><i></i></div>
-      <div class="shd"><b>${esc(seat)}번 좌석 · 최근 24시간</b><button id="slClose">완료</button></div>
-      <div class="sbody" id="slbody"><p class="empty" style="padding:24px 0">불러오는 중…</p></div></div>`, {sheet:true});
-    $("#slClose").onclick=hideOv; sheetDrag($("#sheet"));
+      <div class="shd"><b>${esc(seat)}번 좌석</b><button id="saClose">완료</button></div>
+      <div class="sbody" id="sabody"><p class="empty" style="padding:24px 0">불러오는 중…</p></div></div>`, {sheet:true});
+    $("#saClose").onclick=hideOv; sheetDrag($("#sheet"));
+    fillSeatAdmin(seat); }
+
+  async function fillSeatAdmin(seat){          // 시트는 그대로 두고 본문만 다시 그림
+    const s=(SEATROWS||[]).find(x=>x.seat_id===seat)||{seat_id:seat};
+    paintSeatAdmin(seat,s,undefined);          // 상태·관리 버튼 먼저(기록을 기다리지 않고 바로 누를 수 있게)
     let r=null; try{ r=await rpc('me_seat_log',{p_seat_id:seat}); }catch(e){ r=null; }
-    const b=$("#slbody"); if(!b) return;
-    if(!r||!okOf(r)){ b.innerHTML=`<p class="empty" style="padding:24px 0">${esc(errOf(r)||'기록을 불러오지 못했어요')}</p>`; return; }
-    const rows=r.rows||[];
-    const tK=t=>{ const d=new Date(t); return d.toDateString()===new Date().toDateString()?hm(d):dtK(d); };   // 어제 것이면 날짜까지
+    paintSeatAdmin(seat,s,r); }
+
+  function paintSeatAdmin(seat,s,r){
+    const b=$("#sabody"); if(!b) return;
+    const now=Date.now(), rows=(r&&okOf(r)&&r.rows)||[];
+    const busy=!!s.occupied, blocked=!!s.is_blocked;
+    const cur=rows.find(x=>x.kind==='use'&&x.status==='active'&&new Date(x.end_at).getTime()>now);
+    const kv=(k,v)=>`<div class="row noic"><span class="tx">${k}</span><span class="val">${v}</span></div>`;
+    const en=cur?cur.end_at:s.end_at, rem=(busy&&en)?Math.max(0,Math.round((new Date(en).getTime()-now)/60000)):null;
+    const d=cur?phoneDigits(cur.phone):'';
+    const head=`<div class="list" style="margin-top:6px">${kv('상태',
+      blocked?'<span class="tag rep">점검 중</span>':busy?'<span class="tag amb">이용 중</span>':'<span class="tag adm">빈자리</span>')}</div>`;
+    const detail=[
+      cur&&cur.start_at?kv('시작',`<span class="mono">${hm(cur.start_at)}</span>`):'',
+      en?kv('종료',`<span class="mono">${hm(en)}</span>`):'',
+      rem!==null?kv('남은 시간',fmtRem(rem)):''].join('');
+    const use = !busy ? '' : `<div class="gtitle">지금 이용 중</div>
+      ${cur?`<div class="list"><div class="slit"><div class="repwho" style="margin-top:0"><div class="rwn">${esc(cur.name||'알 수 없음')}<span class="mono">${esc(cur.student_no||'')}</span></div>
+        ${d?`<div class="rwa"><a class="adbtn" href="tel:${d}">전화</a><a class="adbtn" href="sms:${d}">문자</a><span class="rwp mono">${fmtPhone(d)}</span></div>`:'<div class="rwp">휴대폰 번호 미등록</div>'}</div></div></div>`
+       :(s.sno_masked?`<div class="list">${kv('이용자',`<span class="mono">${esc(s.sno_masked)}</span>`)}</div>`:'')}
+      ${detail?`<div class="list" style="margin-top:8px">${detail}</div>`:''}`;
+    const acts=`<div class="gtitle">관리</div><div class="list">
+      ${busy?`<div class="row noic"><span class="tx">이용 시간</span><span class="rowbtns"><button class="adbtn" id="saM10">−10분</button><button class="adbtn" id="saP10">+10분</button></span></div>
+      <button class="row dan noic" id="saEnd">강제 퇴실</button>`:''}
+      <button class="row center noic" id="saBlk">${blocked?'점검 해제':'점검 설정'}</button></div>`;
+    const log = r===undefined ? '<p class="empty" style="padding:18px 0">기록 불러오는 중…</p>'
+      : (!r||!okOf(r)) ? `<p class="empty" style="padding:18px 0">${esc(errOf(r)||'기록을 불러오지 못했어요')}</p>`
+      : seatLogHTML(rows);
+    b.innerHTML = head + use + acts + '<div class="gtitle">최근 24시간</div>' + log;
+    const again=()=>fillSeatAdmin(seat);
+    if($("#saM10")) $("#saM10").onclick=()=>seatAdminAct('m10',seat,blocked,again);
+    if($("#saP10")) $("#saP10").onclick=()=>seatAdminAct('p10',seat,blocked,again);
+    if($("#saBlk")) $("#saBlk").onclick=()=>seatAdminAct('blk',seat,blocked,again);
+    if($("#saEnd")) $("#saEnd").onclick=()=>seatAdminAct('end',seat,blocked,()=>openSeatAdmin(seat)); }   // 강제 퇴실은 확인창이 시트를 닫으므로 다시 열어 줌
+
+  // 최근 24시간 이용·신고 기록(시간순)
+  function seatLogHTML(rows){
+    if(!rows.length) return '<p class="empty" style="padding:18px 0">최근 24시간 기록이 없어요</p>';
+    const tK=t=>{ const dd=new Date(t); return dd.toDateString()===new Date().toDateString()?hm(dd):dtK(dd); };   // 어제 것이면 날짜까지
     const ST={ended:['이용 완료','gry'],expired:['만료','gry'],cancelled:['취소','gry']};
-    b.innerHTML = rows.length ? `<div class="list" style="margin-top:6px">${rows.map(x=>{
+    return `<div class="list">${rows.map(x=>{
       if(x.kind==='report') return `<div class="slit"><div class="slt"><b>${tK(x.at)}</b><span class="tag ${x.resolved_at?'gry':'rep'}">신고${x.resolved_at?' · 처리 완료':''}</span></div>
         <div class="slrsn">${esc(x.reason||'기타')}</div>${x.detail?`<div class="sldet">${esc(x.detail)}</div>`:''}</div>`;
       const live = x.status==='active' && new Date(x.end_at).getTime()>Date.now();
@@ -1037,13 +1075,15 @@
       return `<div class="slit"><div class="slt"><b>${tK(x.start_at)} → ${hm(x.end_at)}</b><span class="tag ${st[1]}">${st[0]}</span></div>
         <div class="repwho"><div class="rwn">${esc(x.name||'알 수 없음')}<span class="mono">${esc(x.student_no||'')}</span></div>
         ${d?`<div class="rwa"><a class="adbtn" href="tel:${d}">전화</a><a class="adbtn" href="sms:${d}">문자</a><span class="rwp mono">${fmtPhone(d)}</span></div>`:'<div class="rwp">휴대폰 번호 미등록</div>'}</div></div>`;
-    }).join('')}</div>` : '<p class="empty" style="padding:24px 0">최근 24시간 기록이 없어요</p>'; }
-  async function seatAdminAct(a,seat,blocked){
+    }).join('')}</div>`; }
+
+  async function seatAdminAct(a,seat,blocked,after){
     const run=async()=>{ try{ let r;
       if(a==='end') r=await rpc('admin_end',{p_pin:'',p_seat:seat});
       else if(a==='blk') r=await rpc('admin_block',{p_pin:'',p_seat:seat,p_blocked:!blocked});
       else r=await rpc('admin_adjust',{p_pin:'',p_seat:seat,p_delta:a==='p10'?10:-10});
-      toast(okOf(r)?'반영했어요':(errOf(r)||'반영하지 못했어요'), okOf(r)?'ok':'err'); loadSeatsAdmin();
+      toast(okOf(r)?'반영했어요':(errOf(r)||'반영하지 못했어요'), okOf(r)?'ok':'err');
+      await loadSeatsAdmin(); if(after) after();
     }catch(e){ toast(netMsg(e),'err'); } };
     if(a==='end') confirmSheet('강제 퇴실',`${esc(seat)}번 좌석을 강제로 퇴실시킬까요?`,'퇴실',true,async()=>{ hideOv(); run(); });
     else run(); }
