@@ -462,7 +462,7 @@
     if(r.status===401){ logout(); throw new Error('401'); } if(r.status>=500) throw new NetErr('server'); if(!r.ok) throw new Error(await r.text());
     return r.status===204?null:r.json(); }
   function saveSession(s){ session=s; writeTok(s); scheduleRefresh(); }
-  function logout(){ session=null; PROFILE=null; clearTok(); clearTimers(); clearTimeout(refreshTimer); if(adminTimer){clearInterval(adminTimer);adminTimer=null;} IS_ADMIN=false; unresolvedN=0; seenReportAt=0; hideOv(); mode='login'; screenAuth(); }
+  function logout(){ session=null; PROFILE=null; clearTok(); clearTimers(); clearTimeout(refreshTimer); if(adminTimer){clearInterval(adminTimer);adminTimer=null;} IS_ADMIN=false; IS_OWNER=false; unresolvedN=0; seenReportAt=0; hideOv(); mode='login'; screenAuth(); }
   // 토큰 자동 갱신 — true=갱신, false=토큰 무효(재로그인), 'net'=연결 실패(토큰 유지하고 나중에 재시도)
   async function refreshSession(){
     if(!session||!session.refresh_token) return false;
@@ -493,12 +493,14 @@
   // ── 데이터 (DEMO면 가짜) ──
   let demoOut = false;
   let demoProfile = {name:'이태규',student_no:'202002502'};
-  let IS_ADMIN=false, adminTimer=null, seenReportAt=0, unresolvedN=0, PROFILE=null;   // 관리자(슈퍼계정) 상태
+  let IS_ADMIN=false, IS_OWNER=false, adminTimer=null, seenReportAt=0, unresolvedN=0, PROFILE=null;   // 관리자 / 최고 관리자(관리자를 지정할 수 있는 1명) 상태
   async function fetchProfile(){ if(DEMO) return demoProfile;
     let p;
-    try{ p=await rest(`profiles?select=name,student_no,is_admin&id=eq.${session.user.id}`); }
+    try{ p=await rest(`profiles?select=name,student_no,is_admin,is_owner&id=eq.${session.user.id}`); }
     catch(e){ if(e instanceof NetErr || !session) throw e;   // 연결 실패·로그아웃은 그대로 올림
-      p=await rest(`profiles?select=name,student_no&id=eq.${session.user.id}`); }            // is_admin 컬럼 없던 시절 폴백
+      try{ p=await rest(`profiles?select=name,student_no,is_admin&id=eq.${session.user.id}`); }   // is_owner 칸 없던 시절 폴백
+      catch(e2){ if(e2 instanceof NetErr || !session) throw e2;
+        p=await rest(`profiles?select=name,student_no&id=eq.${session.user.id}`); } }            // is_admin 칸 없던 시절 폴백
     return Array.isArray(p)?(p[0]||null):null; }
   async function fetchResv(){ if(DEMO) return demoOut?null:{seat_id:'B5',start_at:new Date(Date.now()-54*60000).toISOString(),end_at:new Date(Date.now()+66*60000).toISOString()};
     const nowIso=new Date().toISOString();   // 종료시각이 지난(만료) 예약은 제외 → 시간 다 되면 '이용 중인 좌석' 자동으로 사라짐
@@ -578,7 +580,7 @@
     if(!DEMO && (!p||!p.student_no)) return screenProfile();
     PROFILE=p;
     if($("#pnm")){ $("#pnm").textContent=(p&&p.name)||'회원'; $("#psno").textContent=(p&&p.student_no)||''; }
-    IS_ADMIN=!!(p&&p.is_admin); if(IS_ADMIN){ startAdminWatch(); updateMenuBadge(); }
+    IS_ADMIN=!!(p&&p.is_admin); IS_OWNER=!!(p&&p.is_owner); if(IS_ADMIN){ startAdminWatch(); updateMenuBadge(); }
     loadResv(); timers.push(setInterval(loadResv,10000));
     loadZoneSummary(); timers.push(setInterval(loadZoneSummary,15000));
     setTimeout(initPush, 600);   // 최초 로그인 시 알림 권한 안내
@@ -1039,12 +1041,14 @@
     b.querySelectorAll('.mitem').forEach(x=>x.onclick=()=>openMemberSheet(MEMBERS[+x.dataset.i])); }
   function openMemberSheet(m){ if(!m) return;
     const d=phoneDigits(m.phone), ph=d?fmtPhone(d):'';
+    //  권한 스위치는 최고 관리자에게만 보임. 본인과 최고 관리자는 대상에서 제외(서버에서도 한 번 더 막음)
+    const canGrant = IS_OWNER && !m.is_owner && String(m.student_no||'')!==String((PROFILE&&PROFILE.student_no)||'');
     const kv=(k,v)=>`<div class="row noic"><span class="tx">${k}</span><span class="val">${v}</span></div>`;
     showOv(`<div class="sheet" id="sheet" role="dialog" aria-label="회원 정보">
       <div class="grab"><i></i></div>
       <div class="shd"><b>회원 정보</b><button id="msClose">완료</button></div>
       <div class="sbody">
-        <div class="list" style="margin-top:6px"><div class="acct"><div class="av">${esc(String(m.name||'?').slice(0,1))}</div><div style="min-width:0"><b>${esc(m.name||'—')}${m.is_admin?' <span class="tag adm">관리자</span>':''}</b><small>${esc(m.student_no||'')}</small></div></div></div>
+        <div class="list" style="margin-top:6px"><div class="acct"><div class="av">${esc(String(m.name||'?').slice(0,1))}</div><div style="min-width:0"><b>${esc(m.name||'—')}${m.is_owner?' <span class="tag adm">최고 관리자</span>':m.is_admin?' <span class="tag adm">관리자</span>':''}</b><small>${esc(m.student_no||'')}</small></div></div></div>
         <div class="gtitle">연락처</div><div class="list">
           ${d?`<a class="row" href="tel:${d}"><span class="ic" style="background:#34c759">${I.phone}</span><span class="tx">전화 걸기<small class="mono">${ph}</small></span><i class="chev"></i></a>
           <a class="row" href="sms:${d}"><span class="ic" style="background:#007aff">${I.chat}</span><span class="tx">문자 보내기<small class="mono">${ph}</small></span><i class="chev"></i></a>`
@@ -1052,13 +1056,34 @@
         <div class="gtitle">이용</div><div class="list">${kv('예약',`${m.resv_count||0}회`)}${kv('이번 달 이용',minLabel(m.month_min))}${kv('누적 이용',minLabel(m.total_min))}</div>
         <div class="gtitle">신고</div><div class="list">${kv('받은 신고',`${m.report_count||0}회`)}${kv('신고한 횟수',`${m.filed_count||0}회`)}</div>
         <div class="gtitle">가입</div><div class="list">${kv('가입일',m.created_at?new Date(m.created_at).toLocaleDateString('ko-KR'):'—')}</div>
+        ${canGrant?`<div class="gtitle">권한</div><div class="list">
+          <div class="row noic"><span class="tx">관리자 권한<small>좌석 관리 · 민원 접수함 · 회원 조회 · 공지 · 설정</small></span>
+            <button class="sw ${m.is_admin?'on':''}" id="msAdm" role="switch" aria-checked="${!!m.is_admin}" aria-label="관리자 권한"></button></div></div>`:''}
         ${m.is_admin?'':`<div class="list" style="margin-top:30px"><button class="row center noic" id="msReset">비밀번호 초기화</button></div>
         <div class="list" style="margin-top:12px"><button class="row dan noic" id="msDel">탈퇴시키기</button></div>`}
       </div></div>`, {sheet:true});
     $("#msClose").onclick=hideOv; sheetDrag($("#sheet"));
+    if($("#msAdm")) $("#msAdm").onclick=()=>askSetAdmin(m, !m.is_admin);
     if($("#msReset")) $("#msReset").onclick=()=>askReset(m.student_no, m.name);
     if($("#msDel")) $("#msDel").onclick=()=>askDeleteMember(m.student_no, m.name);
   }
+  // 최고 관리자: 회원에게 관리자 권한 주기·빼기 (본인·최고 관리자 대상은 서버에서 차단)
+  function askSetAdmin(m,on){
+    const nm=esc(m.name||m.student_no);
+    confirmSheet(on?'관리자 권한 부여':'관리자 권한 해제',
+      on?`${nm}님에게 관리자 권한을 줄까요?<br>좌석 관리 · 민원 접수함 · 회원 조회 · 공지 · 설정을 모두 쓸 수 있게 돼요.`
+        :`${nm}님의 관리자 권한을 해제할까요?<br>관리자 기능을 더 이상 쓸 수 없게 돼요.`,
+      on?'권한 주기':'해제하기', !on, async()=>{
+      hideOv();
+      try{ const r=await rpc('me_set_admin',{p_student_no:m.student_no,p_on:on});
+        if(okOf(r)){ m.is_admin=on;
+          toast(on?`${m.name||m.student_no}님을 관리자로 지정했어요`:`${m.name||m.student_no}님의 관리자 권한을 해제했어요`,'ok');
+          loadMembers(($("#mq")||{}).value||''); openMemberSheet(m); }
+        else toast(errOf(r)||'권한을 바꾸지 못했어요','err'); }
+      catch(e){ toast(e instanceof NetErr?netMsg(e):'권한을 바꾸지 못했어요','err'); } });
+    $("#cno").onclick=()=>openMemberSheet(m);   // 취소하면 회원 정보로 되돌아감
+  }
+
   // 관리자: 회원 탈퇴시키기 — 모든 데이터 삭제(관리자 계정·본인은 서버에서 차단)
   function askDeleteMember(sno,name){
     confirmSheet('회원 탈퇴',`${esc(name||sno)}님(<span class="mono">${esc(sno)}</span>)을 탈퇴시킬까요?<br>계정과 이용 기록이 <b>모두 삭제</b>되고 되돌릴 수 없어요.`,'탈퇴시키기',true,async()=>{
@@ -1085,7 +1110,7 @@
       ${top.length?`<div class="agroup" style="margin-top:0">${top.map(x=>`<div class="zrow"><span>${esc(x.seat)}번 좌석</span><span><b class="mono">${x.n}</b>회</span></div>`).join('')}</div>`:'<p class="empty" style="padding:12px 0">아직 데이터가 없어요</p>'}`; }
 
   // 관리 기록 — 서버 원문(JSON·코드)을 사람이 읽는 문장으로
-  const ACT_KO={'강제퇴실':'강제 퇴실','강제종료':'강제 퇴실','설정변경':'설정 변경','시간조정':'시간 조정','신고처리':'신고 처리','점검설정':'점검 설정','점검해제':'점검 해제','회원탈퇴':'회원 탈퇴'};
+  const ACT_KO={'강제퇴실':'강제 퇴실','강제종료':'강제 퇴실','설정변경':'설정 변경','시간조정':'시간 조정','신고처리':'신고 처리','점검설정':'점검 설정','점검해제':'점검 해제','회원탈퇴':'회원 탈퇴','관리자지정':'관리자 지정','관리자해제':'관리자 해제'};
   const CFG_KO={max_minutes:v=>`최대 이용 시간 ${v}분`,renew_window_min:v=>`연장 가능 시점 종료 ${v}분 전`,idle_return_sec:v=>`무동작 자동 복귀 ${v}초`,
     renew_mode:v=>`연장 방식 ${v==='add'?'남은 시간에 추가':'지금부터'}`,prevent_dup:v=>`한 사람 한 자리 ${v?'켬':'끔'}`,night_off:v=>`야간 화면 끄기 ${v?'켬':'끔'}`,
     daily_max_min:v=>`1일 최대 이용 ${+v>0?v+'분':'무제한'}`};
