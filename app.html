@@ -48,6 +48,9 @@
     font-family:var(--sf);letter-spacing:-.011em;word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}   /* 한글 어절 단위 줄바꿈(단어 중간 끊김 방지) · 마지막 줄에 한 단어만 남지 않게 */
   .nw{white-space:nowrap}   /* 한 덩어리로 묶어 중간에서 줄이 바뀌지 않게(예: 수집·이용, 종료 30분 전) */
   [hidden]{display:none!important}
+  :focus-visible{outline:2px solid var(--tint-text);outline-offset:2px}   /* 키보드로 이동할 때 어디에 있는지 보이게 */
+  .row:focus-visible,.mitem:focus-visible,.mseat:focus-visible{outline-offset:-3px}
+  .group .f:focus-within{box-shadow:inset 0 0 0 2px var(--tint-text)}   /* 묶음 입력칸은 테두리가 없어 칸 전체에 표시 */
   button,input,textarea{font-family:inherit;letter-spacing:inherit;color:inherit}
   a{color:inherit;text-decoration:none}
   .num,.mono{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
@@ -142,7 +145,7 @@
   .mbrow{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;margin-top:8px}
   .mtable{height:8px;background:var(--map-table);border-radius:5px;margin-top:7px}
   .mseat{aspect-ratio:1;width:100%;min-width:0;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap;
-    font-size:clamp(11px,3.3vw,14px);font-weight:700;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+    font-size:clamp(9px,2.9vw,14px);font-weight:700;letter-spacing:-.06em;font-variant-numeric:tabular-nums}
   .mseat.free{background:var(--tint-bg);color:var(--tint-text)}
   .mseat.occ{background:var(--amber-bg);color:var(--amber)}
   .mseat.blk{background:var(--grey-bg);color:var(--grey-t)}
@@ -170,12 +173,12 @@
   .hcard .l{font-size:13px;color:var(--ink2);margin-top:7px;font-weight:600}
   .hsec{flex:0 0 auto;background:var(--card);border-radius:18px;padding:15px 16px;box-shadow:var(--shadow)}
   .hsect{font-size:15px;font-weight:700;margin-bottom:10px}
-  .hbars{display:flex;align-items:flex-end;gap:5px;height:92px}
+  .hbars{display:flex;align-items:flex-end;gap:4px;height:92px}
   .hbar{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%}
   .hbw{flex:1;width:100%;display:flex;align-items:flex-end;background:var(--sub);border-radius:6px;overflow:hidden}
   .hbw i{width:100%;background:var(--bar-soft);border-radius:6px;display:block;min-height:0;transition:height .35s ease}
   .hbw i.now{background:var(--tint)}
-  .hbar span{font-size:11px;color:var(--ink2);font-variant-numeric:tabular-nums;letter-spacing:-.05em}
+  .hbar span{font-size:10px;color:var(--ink2);font-variant-numeric:tabular-nums;letter-spacing:-.07em;line-height:1.2}
   .hbar span.td{color:var(--tint-text);font-weight:800}
   .hitem{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:44px;padding:6px 0;border-bottom:1px solid var(--sep)}
   .hitem:last-child{border-bottom:0}
@@ -189,6 +192,12 @@
 
   /* ── 공지 ── */
   #nlist{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:8px 16px calc(20px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px}
+  .rulerow{display:grid;grid-template-columns:26px minmax(0,1fr);gap:12px;padding:13px 14px;align-items:start}
+  .rulerow+.rulerow{border-top:1px solid var(--sep)}
+  .rulerow i{width:26px;height:26px;border-radius:50%;background:var(--tint-bg);color:var(--tint-text);font-style:normal;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+  .rulerow b{display:block;font-size:16px;font-weight:600;line-height:1.35}
+  .rulerow span{display:block;font-size:14px;color:var(--ink2);line-height:1.5;margin-top:3px}
+  .rulerow span b{display:inline;font-size:inherit;color:var(--ink);font-weight:700}
   .ncard{background:var(--card);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow)}
   .ntitle{font-size:17px;font-weight:700;margin-bottom:6px;line-height:1.4}
   .nbody{font-size:15px;color:var(--ink2);line-height:1.6}
@@ -340,8 +349,8 @@
   /* 가입 동의: 개인정보 안내 + 필수 동의 */
   .consent{margin-top:14px;background:var(--card);border-radius:12px;padding:13px 15px;text-align:left}
   .consent .ct2{display:block;font-size:15px;font-weight:600;margin-bottom:8px}
-  .consent dl{margin:0;display:grid;grid-template-columns:4.4em minmax(0,1fr);gap:7px 10px;font-size:13px;line-height:1.5}
-  .consent dt{color:var(--ink2);font-weight:600}
+  .consent dl{margin:0;display:grid;grid-template-columns:max-content minmax(0,1fr);gap:7px 10px;font-size:13px;line-height:1.5}   /* 항목 이름 칸은 글자 길이에 맞춤(글자 크게 설정에서도 안 잘림) */
+  .consent dt{color:var(--ink2);font-weight:600;white-space:nowrap}
   .consent dd{margin:0;color:var(--ink)}
   .agree{display:flex;align-items:flex-start;gap:10px;width:100%;margin-top:10px;padding:12px 14px;border:0;border-radius:12px;background:var(--card);text-align:left;font-size:15px;color:var(--ink);line-height:1.45}
   .agree i{flex:0 0 auto;width:22px;height:22px;margin-top:1px;border-radius:6px;border:2px solid var(--sep2);display:flex;align-items:center;justify-content:center}
@@ -484,7 +493,9 @@
   async function net(url,opt){ try{ return await fetch(url,opt); }catch(_){ throw new NetErr('offline'); } }
   const netMsg=e=>e instanceof NetErr?'인터넷 연결을 확인해 주세요':'문제가 생겼어요. 잠시 후 다시 시도해 주세요';
   async function auth(path,body){ const r=await net(`${SUPABASE_URL}/auth/v1/${path}`,{method:"POST",headers:baseH(),body:JSON.stringify(body)});
-    const j=await r.json().catch(()=>({})); if(!r.ok) throw (j.error_description||j.msg||j.message||'요청 실패'); return j; }
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){ const e=new Error(j.error_description||j.msg||j.message||'요청 실패'); e.code=j.error_code||j.code||''; e.status=r.status; throw e; }   // 서버가 준 오류 코드도 함께(한글 안내로 바꿔 보여주려고)
+    return j; }
   async function rpc(fn,args){ const r=await net(`${SUPABASE_URL}/rest/v1/rpc/${fn}`,{method:"POST",headers:authH(),body:JSON.stringify(args||{})});
     if(r.status>=500) throw new NetErr('server'); if(!r.ok) throw new Error(await r.text()); return r.json(); }
   async function rest(path,opt){ const r=await net(`${SUPABASE_URL}/rest/v1/${path}`,{headers:authH(),...(opt||{})});
@@ -731,6 +742,7 @@
     notice:['#007aff',`<svg viewBox="0 0 24 24" ${W}><path d="M17.5 5.3v13.4a1 1 0 0 1-1.5.9L11.8 17H9.6l.8 3a1 1 0 0 1-1 1.3H8.3a1 1 0 0 1-1-.7L6.1 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h6.8l4.2-2.6a1 1 0 0 1 1.5.9z"/><path d="M20.2 10.2a2.6 2.6 0 0 1 0 3.6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></svg>`],
     contact:['#30b0c7',I.chat.replace('fill="currentColor"',W)],
     bell:['#ff3b30',`<svg viewBox="0 0 24 24" ${W}><path d="M12 3a6 6 0 0 0-6 6v3.3L4.4 15a1 1 0 0 0 .9 1.5h13.4a1 1 0 0 0 .9-1.5L18 12.3V9a6 6 0 0 0-6-6z"/><path d="M9.5 18.2a2.5 2.5 0 0 0 5 0z"/></svg>`],
+    rules:['#5856d6',`<svg viewBox="0 0 24 24" ${WS}><path d="M7 4.5h10A1.5 1.5 0 0 1 18.5 6v12a1.5 1.5 0 0 1-1.5 1.5H7A1.5 1.5 0 0 1 5.5 18V6A1.5 1.5 0 0 1 7 4.5z"/><path d="M8.8 9.2h6.4M8.8 12.5h6.4M8.8 15.8h3.6"/></svg>`],
     pw:['#8e8e93',`<svg viewBox="0 0 24 24" ${W}><path d="M7 10V8a5 5 0 0 1 10 0v2h.5A1.5 1.5 0 0 1 19 11.5v8a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19.5v-8A1.5 1.5 0 0 1 6.5 10zm2 0h6V8a3 3 0 0 0-6 0z"/></svg>`],
     install:['#5856d6',`<svg viewBox="0 0 24 24" ${WS}><path d="M12 4v10M7.5 9.5 12 14l4.5-4.5M5 18.5h14"/></svg>`],
     aSeats:['#1a7a45',`<svg viewBox="0 0 24 24" ${W}><rect x="4" y="4" width="7" height="7" rx="1.8"/><rect x="13" y="4" width="7" height="7" rx="1.8"/><rect x="4" y="13" width="7" height="7" rx="1.8"/><rect x="13" y="13" width="7" height="7" rx="1.8"/></svg>`],
@@ -758,7 +770,7 @@
         <div class="list" style="margin-top:6px"><div class="acct"><div class="av">${esc(String(P.name||'회원').slice(0,1))}</div><div style="min-width:0"><b>${esc(P.name||'회원')}</b><small>${esc(P.student_no||'')}</small></div></div></div>
         ${admin}
         <div class="gtitle">이용</div><div class="list">
-          ${rowHTML('mHist','hist','내 이용 내역')}${rowHTML('mReport','report','좌석 신고')}${rowHTML('mNotice','notice','공지사항')}</div>
+          ${rowHTML('mHist','hist','내 이용 내역')}${rowHTML('mReport','report','좌석 신고')}${rowHTML('mNotice','notice','공지사항')}${rowHTML('mRules','rules','이용 수칙')}</div>
         <div class="gtitle">설정</div><div class="list">
           <div class="row" id="mPush"><span class="ic" style="background:${MI.bell[0]}">${MI.bell[1]}</span><span class="tx">알림<small><span class="nw">예약 완료,</span> <span class="nw">종료 30분 전,</span> <span class="nw">이용 종료,</span> <span class="nw">대기 차례</span></small></span><span class="sw" id="pushtgl" role="switch" aria-checked="false"></span></div>
           ${rowHTML('mPw','pw','비밀번호 변경')}
@@ -771,7 +783,7 @@
     const go=(id,fn)=>{ const el=$("#"+id); if(el) el.onclick=()=>{ hideOv(); fn(); }; };
     if(IS_ADMIN){ go('mASeats',screenSeatsAdmin); go('mANotice',screenNoticeAdmin); go('mAReport',screenReportsAdmin); go('mAMembers',screenMembers);
       go('mAStats',screenStatsAdmin); go('mALog',screenAdminLog); go('mAConfig',screenConfigAdmin); go('mAExport',doExport); }
-    go('mHist',screenHistory); go('mReport',screenReport); go('mNotice',screenNotices); go('mInstall',doInstall);
+    go('mHist',screenHistory); go('mReport',screenReport); go('mNotice',screenNotices); go('mRules',screenRules); go('mInstall',doInstall);
     $("#mContact").onclick=openContact; $("#mPw").onclick=openPwChange; $("#mOut").onclick=()=>{ hideOv(); logout(); };
     if($("#mDel")) $("#mDel").onclick=openWithdraw;
     $("#mPush").onclick=togglePush;
@@ -870,6 +882,21 @@
     }catch(e){ toast(netMsg(e),'err'); if(btn) btn.disabled=false; }
   }
 
+  // ── 이용 수칙 (키오스크 '이용 시 유의사항'과 같은 내용) ──
+  const RULES=[
+    ['그린나래는 카페입니다','큰 소음은 제한되나, 대화는 가능한 공간이에요.'],
+    ['음식물 섭취 제한','음료를 제외한 음식물 섭취를 제한해요.'],
+    ['이용 시간 만료 시 자리 반환','이용 시간이 끝나면 별도 통보 없이 자동으로 반환돼요.'],
+    ['퇴실 후 자리 정리','퇴실할 때 이용한 자리는 깨끗하게 정리해 주세요.'],
+    ['미사용·위반 좌석 정리','예약 없이 짐만 있거나 유의사항을 어긴 좌석은 별도 통보 없이 자리를 반환하고, <b>남은 짐은 관리자가 옮길 수 있어요.</b>'],
+    ['이용 인원 지키기','1인석 소파는 2인이 앉을 수 없어요.'],
+  ];
+  function screenRules(){ clearTimers();
+    screen.innerHTML=`<div class="hd"><button class="back" id="bk">뒤로</button><h1>이용 수칙</h1></div>
+      <div id="nlist"><div class="agroup" style="margin:6px 0 0">${RULES.map(([t,d],i)=>`<div class="rulerow"><i>${i+1}</i><div><b>${t}</b><span>${d}</span></div></div>`).join('')}</div>
+        <p class="zhint2" style="padding:14px 8px 0">지키지 않은 좌석은 <b>좌석 신고</b>로 알려 주세요</p></div>`;
+    $("#bk").onclick=screenHome; }
+
   // ── 공지사항 ──
   function screenNotices(){
     clearTimers();
@@ -907,7 +934,8 @@
       $("#pok").disabled=true;
       try{ const r=await net(`${SUPABASE_URL}/auth/v1/user`,{method:'PUT',headers:authH(),body:JSON.stringify({password:v})});
         if(r.ok){ hideOv(); toast('비밀번호를 변경했어요','ok'); }
-        else { const e=await r.json().catch(()=>({})); $("#pwmsg").textContent=e.msg||e.error_description||'변경하지 못했어요'; $("#pok").disabled=false; }
+        else { const e=await r.json().catch(()=>({}));
+          $("#pwmsg").textContent=loginErr({message:e.msg||e.error_description||'',code:e.error_code||'',status:r.status})||'변경하지 못했어요'; $("#pok").disabled=false; }
       }catch(e){ $("#pwmsg").textContent=netMsg(e); $("#pok").disabled=false; } };
   }
 
@@ -1188,14 +1216,32 @@
     $("#bk").onclick=screenHome; const go=()=>loadMembers($("#mq").value.trim());
     $("#mgo").onclick=go; $("#mq").addEventListener('keydown',e=>{ if(e.key==='Enter' && !e.isComposing) go(); }); $("#mcsv").onclick=membersCsv; loadMembers(''); }
   async function membersCsv(){ toast('CSV 만드는 중…');
-    let res=null; try{ res=await rpc('me_members',{p_q:''}); }catch(e){}
-    const rows=(res&&res.rows)||[]; if(!rows.length){ toast('내보낼 회원이 없어요','err'); return; }
-    const head=['학번','이름','가입일','예약 수','이번 달(분)','누적(분)','받은 신고 수','신고한 횟수'];
-    const csv=[head.join(',')].concat(rows.map(m=>[m.student_no||'', '"'+String(m.name||'').replace(/"/g,'""')+'"', String(m.created_at||'').slice(0,10), m.resv_count||0, m.month_min||0, m.total_min||0, m.report_count||0, m.filed_count||0].join(','))).join('\r\n');
-    const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});   // BOM: 엑셀 한글 깨짐 방지
+    let rows=null;
+    try{ const r=await rpc('me_members_export',{}); if(okOf(r)) rows=r.rows||[]; }               // v11: 전 항목(전화번호 포함)
+    catch(e){ if(e instanceof NetErr){ toast(netMsg(e),'err'); return; } }                        // v11 미적용이면 아래로 폴백
+    if(!rows){ try{ const r=await rpc('me_members',{p_q:''}); if(okOf(r)) rows=r.rows||[]; }
+      catch(e){ toast(netMsg(e),'err'); return; } }
+    if(!rows||!rows.length){ toast('내보낼 회원이 없어요','err'); return; }
+    const dt=t=>{ if(!t) return ''; const d=new Date(t); if(isNaN(d)) return '';
+      return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+    const day=(t,addY)=>{ if(!t) return ''; const d=new Date(t); if(isNaN(d)) return ''; if(addY) d.setFullYear(d.getFullYear()+addY);
+      return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`; };
+    //  엑셀이 수식으로 읽지 않게(이름에 = + - @ 로 시작하는 값이 들어와도 안전) · 모든 칸은 따옴표로 감쌈
+    const cell=v=>{ let x=(v==null||v===false)?'':String(v);
+      if(/^[=+\-@\t\r]/.test(x)) x="'"+x;
+      return '"'+x.replace(/"/g,'""')+'"'; };
+    const head=['학번','이름','휴대폰 번호','권한','가입 일시','자동 탈퇴 예정일','개인정보 동의 일시','동의 안내 버전','마지막 로그인','마지막 이용','예약 수','이번 달 이용(분)','누적 이용(분)','받은 신고 수','신고한 횟수'];
+    const line=m=>[ m.student_no||'', m.name||'', m.phone?fmtPhone(phoneDigits(m.phone)):'',
+      m.is_owner?'최고 관리자':(m.is_admin?'관리자':'회원'),
+      dt(m.created_at), day(m.created_at,5), dt(m.consent_at), m.consent_ver||'',
+      dt(m.last_sign_in_at), dt(m.last_use_at),
+      m.resv_count||0, m.month_min||0, m.total_min||0, m.report_count||0, m.filed_count||0 ].map(cell).join(',');
+    const csv=[head.map(cell).join(',')].concat(rows.map(line)).join('\r\n');
+    const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});   // BOM: 엑셀 한글 깨짐 방지
     const url=URL.createObjectURL(blob), a=document.createElement('a');
     a.href=url; a.download=`greennarae_members_${new Date().toISOString().slice(0,10)}.csv`;
-    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000); toast('CSV를 내보냈어요','ok'); }
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+    toast(`회원 ${rows.length}명을 내보냈어요`,'ok'); }
   let MEMBERS=[];
   async function loadMembers(q){
     let res=null; try{ res=await rpc('me_members',{p_q:q||''}); }catch(e){}
@@ -1504,9 +1550,9 @@
       <b class="ct2">개인정보 수집·이용 안내</b>
       <dl>
         <dt>수집 항목</dt><dd>학번, 이름, 휴대폰 번호, 암호화한 비밀번호, 좌석 <span class="nw">이용·대기</span> 기록, 신고 기록, 알림 수신 정보</dd>
-        <dt>이용 목적</dt><dd>독서실 좌석 <span class="nw">예약·연장·퇴실·대기</span> 관리, 이용 알림 발송, 좌석 신고 처리를 위한 본인 확인과 연락</dd>
+        <dt>이용 목적</dt><dd>독서실 좌석 예약, 연장, 퇴실, 대기 관리, 이용 알림 발송, 좌석 신고 처리를 위한 본인 확인과 연락</dd>
         <dt>보관 기간</dt><dd><b>가입일로부터 5년</b>. 5년이 지나면 자동으로 탈퇴 처리되어 계정과 모든 정보가 삭제되며, 보관 기간은 연장되지 않아요. 그 전에 탈퇴하면 바로 삭제돼요.</dd>
-        <dt>저장 위치</dt><dd>미국 <span class="nw">Supabase, Inc.의</span> 데이터베이스에 저장되며, 서버는 <span class="nw">Amazon Web Services의</span> 싱가포르 리전에 있어요. 앱 화면은 미국 <span class="nw">Cloudflare, Inc.의</span> <span class="nw">Cloudflare Pages로</span> 제공되며, 이곳에는 개인정보를 저장하지 않아요.</dd>
+        <dt>저장 위치</dt><dd>미국 Supabase, Inc.⁠의 데이터베이스에 저장되며, 서버는 Amazon Web Services⁠의 싱가포르 리전에 있어요. 앱 화면은 미국 Cloudflare, Inc.⁠의 Cloudflare Pages⁠로 제공되며, 이곳에는 개인정보를 저장하지 않아요.</dd>
         <dt>동의 거부</dt><dd>동의하지 않을 수 있지만, 동의하지 않으면 가입과 좌석 예약을 이용할 수 없어요.</dd>
       </dl></div>
     <button class="agree" id="agree" type="button" role="checkbox" aria-checked="false"><i></i><span>위 내용을 확인했으며, 개인정보 <span class="nw">수집·이용과</span> 국외 저장에 동의합니다</span></button>`; }
@@ -1521,7 +1567,7 @@
     const mid=(d.startsWith('010')||d.length===11)?4:3;
     return d.length<=3+mid ? d.slice(0,3)+'-'+d.slice(3) : d.slice(0,3)+'-'+d.slice(3,3+mid)+'-'+d.slice(3+mid); }
   function phoneInput(el){ el.addEventListener('input',()=>{ const f=fmtPhone(el.value); if(f!==el.value) el.value=f; }); }
-  function validSno(s){ if(!/^\d{9}$/.test(s)) return false; const y=+s.slice(0,4); return y>=2017 && y<=new Date().getFullYear(); }   // 학번: 9자리, 앞4=년도(2017~올해), 뒤5=숫자
+  function validSno(s){ if(!/^\d{9}$/.test(s)) return false; const y=+s.slice(0,4); return y>=2000 && y<=new Date().getFullYear()+1; }   // 학번: 9자리, 앞4=년도(2000~내년: 복학생·편입생·신입생 포함), 뒤5=숫자
   async function submitAuth(){
     const sno=$("#sno").value.trim(), pw=$("#pw").value;
     if(!sno){ msg('학번을 입력하세요'); return; }
@@ -1553,12 +1599,25 @@
         try{ localStorage.setItem(KEY_AUTO, autoLogin?'1':'0'); }catch(_){}
         const s=await auth('token?grant_type=password',{email:synthEmail(sno),password:pw}); saveSession(s); enter();
       }
-    }catch(e){ msg(e instanceof NetErr?'인터넷 연결을 확인해 주세요':loginErr(String(e))); } finally{ const g=$("#go"); if(g) g.disabled=false; }
+    }catch(e){ msg(e instanceof NetErr?'인터넷 연결을 확인해 주세요':loginErr(e)); } finally{ const g=$("#go"); if(g) g.disabled=false; }
   }
-  function loginErr(e){ e=String(e).replace(/^Error:\s*/,'');
-    if(/Invalid login/i.test(e)) return '학번 또는 비밀번호가 올바르지 않아요';
-    if(/already registered/i.test(e)) return '이미 가입된 학번이에요. 비밀번호가 기억나지 않으면 사생회 카카오톡 채널로 문의해 주세요';
+  //  서버(Supabase) 오류를 한글 안내로 — 영어 원문이 그대로 보이지 않게
+  function loginErr(err){
+    const code=(err&&err.code)||'', st=(err&&err.status)||0, e=String((err&&err.message)||err).replace(/^Error:\s*/,'');
+    if(st===429 || /rate limit|too many requests/i.test(e) || /rate_limit/i.test(code))
+      return '지금 가입·로그인 요청이 몰렸어요.\n30초 뒤에 다시 시도해 주세요';
+    if(/already registered|user_already_exists/i.test(e+code)) return '이미 가입된 학번이에요. 비밀번호가 기억나지 않으면 사생회 카카오톡 채널로 문의해 주세요';
+    if(/invalid login|invalid_credentials/i.test(e+code)) return '학번 또는 비밀번호가 올바르지 않아요';
+    if(/weak_password|password should be|password.*at least/i.test(e+code)) return '비밀번호가 조건에 맞지 않아요.\n영문과 숫자를 섞어 6자 이상으로 다시 입력해 주세요';
+    if(/signup.*disabled|signups? not allowed|signup_disabled/i.test(e+code)) return '지금은 가입을 받지 않고 있어요. 사생회 카카오톡 채널로 문의해 주세요';
+    if(/email_address_invalid|invalid.*email|email.*invalid/i.test(e+code)) return '학번을 다시 확인해 주세요. 계속 안 되면 사생회 카카오톡 채널로 문의해 주세요';
+    if(/email not confirmed|email_not_confirmed/i.test(e+code)) return '계정 확인 설정 때문에 로그인할 수 없어요. 사생회 카카오톡 채널로 문의해 주세요';
+    if(/should be different|same_password/i.test(e+code)) return '지금 쓰는 비밀번호와 다른 비밀번호를 입력해 주세요';
+    if(/captcha/i.test(e+code)) return '보안 확인 때문에 진행할 수 없어요. 사생회 카카오톡 채널로 문의해 주세요';
+    if(/validation_failed|invalid request/i.test(e+code)) return '입력한 내용을 다시 확인해 주세요';
+    if(st>=500 || /요청 실패/.test(e)) return '서버가 잠시 불안정해요. 잠시 후 다시 시도해 주세요';
     if(/^\s*[{\[]/.test(e) || /permission denied|42501/i.test(e)) return '처리하지 못했어요. 잠시 후 다시 시도해 주세요';
+    if(/[A-Za-z]{4,}/.test(e) && !/[가-힣]/.test(e)) return '처리하지 못했어요. 잠시 후 다시 시도해 주세요';   // 영어 원문은 그대로 보여주지 않음
     return e; }
   async function upsertProfile(sno,nm,ph){
     if(!session||!session.user){ throw new Error('세션이 만료됐어요. 다시 로그인해 주세요.'); }
@@ -1656,7 +1715,7 @@
   //  사용자가 눌러서 들어가는 화면들 — 들어가는 순간(터치 안에서) 기록을 하나 쌓아 둔다
   (function(){ function wrap(f){ return function(){ navPush(); return f.apply(this,arguments); }; }
     screenZones=wrap(screenZones); screenHistory=wrap(screenHistory); screenReport=wrap(screenReport);
-    screenNotices=wrap(screenNotices); screenNoticeAdmin=wrap(screenNoticeAdmin); screenReportsAdmin=wrap(screenReportsAdmin);
+    screenNotices=wrap(screenNotices); screenRules=wrap(screenRules); screenNoticeAdmin=wrap(screenNoticeAdmin); screenReportsAdmin=wrap(screenReportsAdmin);
     screenSeatsAdmin=wrap(screenSeatsAdmin); screenMembers=wrap(screenMembers); screenStatsAdmin=wrap(screenStatsAdmin);
     screenAdminLog=wrap(screenAdminLog); screenConfigAdmin=wrap(screenConfigAdmin);
   })();
