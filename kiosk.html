@@ -147,6 +147,12 @@
   .seat.block{background:var(--blk-bg);color:var(--blk)}
   .seat.pick{border-color:var(--tint);box-shadow:0 0 0 5px var(--tint-bg)}
   .seat.sel:active{transform:scale(.96)}
+  .seat small.wq{margin-top:1px;font-size:13px;opacity:.9}                                      /* 시험기간: 대기 인원 */
+  .seat.hold{background:var(--busy-bg);color:var(--busy-t);border:2px dashed var(--busy)}      /* 대기 1순위 입실 시간 */
+  .seat.used{opacity:.42}                                                                       /* 스캔한 회원이 오늘 이미 쓴 좌석 */
+  .exampill{display:inline-flex;align-items:center;gap:12px;padding:14px 26px;border-radius:999px;background:var(--busy-bg);color:var(--busy-t);font-size:24px;font-weight:700;margin-top:18px}
+  .exampill::before{content:"";width:12px;height:12px;border-radius:50%;background:currentColor}
+  .examnote{font-size:22px;color:var(--ink2);margin:-10px 0 24px;text-align:center}
 
   /* 모달 */
   .ov{position:absolute;inset:0;background:rgba(0,0,0,.42);display:flex;align-items:center;justify-content:center;padding:60px;z-index:90}
@@ -266,6 +272,7 @@
         <svg class="big" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#1b5e43"/><path d="M32 53C32 45 30.5 39 33.5 31.5" stroke="#e0f7ec" stroke-width="3.8" stroke-linecap="round" fill="none"/><ellipse cx="22" cy="31" rx="11.5" ry="7.2" transform="rotate(-28 22 31)" fill="#5cc793"/><ellipse cx="42" cy="25.5" rx="13.5" ry="8.6" transform="rotate(32 42 25.5)" fill="#a9e5c8"/></svg>
         <h1>그린나래</h1>
         <p>편안한 공간, 그린나래에 오신 것을 환영합니다</p>
+        <div class="exampill" id="examM" hidden>시험기간 운영 중 · 예약 2시간 · 이용 중인 좌석은 대기 가능</div>
       </div>
       <div class="stats">
         <div class="stat busy"><div class="lab">현재 이용 중</div><div class="v"><b class="tnum" id="nOccM">0</b><span>명</span></div></div>
@@ -442,7 +449,7 @@
   let Btop=['B1','B2','B3','B4','B5','B6'], Bbot=['B7','B8','B9','B10','B11','B12'];
   let C=['C1','C2','C3','C4'];
   function seatEl(id){ const d=document.createElement('div'); d.className='seat free sel'; d.dataset.id=id;
-    d.innerHTML=`${id}<small></small>`; d.onpointerdown=()=>onSeat(id); return d; }
+    d.innerHTML=`${id}<small></small><small class="wq"></small>`; d.onpointerdown=()=>onSeat(id); return d; }
   const seatNodes={};
   function buildSeats(){
     const zA=$("#zA"), zBt=$("#zBtop"), zBb=$("#zBbot"), zC=$("#zC");
@@ -469,17 +476,26 @@
   // ── 상태 ──
   let statusMap={}, scanned=null, picking=null, mode='view', prevMode='view', screen='main', idleTimer=null, doneCd=null;
 
+  const remK=m=>{ m=Math.max(0,Math.ceil(m)); const h=Math.floor(m/60), mm=m%60; return h?`${h}시간${mm?' '+mm+'분':''}`:`${mm}분`; };
+  function updateExamUI(){ const e=$("#examM"); if(e) e.hidden=!CFG.exam_mode; }
   function renderSeats(){
-    let occ=0, free=0;
+    let occ=0, free=0; const exam=!!CFG.exam_mode, used=(scanned&&scanned.used)||[];
     for(const id in seatNodes){
       const s=statusMap[id]||{}; const n=seatNodes[id]; n.className='seat sel';
-      const t=n.querySelector('small'); t.textContent='';
+      const t=n.querySelector('small'), q=n.querySelector('small.wq'); t.textContent=''; if(q) q.textContent='';
+      const wc=+s.wait_count||0;
       if(s.is_blocked){ n.classList.add('block'); t.textContent='점검 중'; }
       else if(s.occupied){ const mins=s.end_at?(new Date(s.end_at)-now())/60000:999;
-        n.classList.add(mins<=30?'soon':'busy'); occ++; t.textContent = s.sno_masked || (mins<=30?'곧 만료':'이용 중'); }
+        n.classList.add(mins<=30?'soon':'busy'); occ++;
+        if(exam){ t.textContent=remK(mins)+' 남음'; if(q&&wc) q.textContent='대기 '+wc+'명'; }   // 시험기간: 남은 시간과 대기 인원
+        else t.textContent = s.sno_masked || (mins<=30?'곧 만료':'이용 중'); }
+      else if(exam && wc>0){ n.classList.add('hold');                                          // 대기 1순위만 들어올 수 있는 시간
+        t.textContent='입실 대기'; if(q) q.textContent = s.hold_until ? '~'+hmK(s.hold_until) : '대기 '+wc+'명'; }
       else { n.classList.add('free'); free++; }
+      if(exam && scanned && used.includes(id) && !s.is_blocked){ n.classList.add('used'); if(!s.occupied && !wc) t.textContent='오늘 이용함'; }
       if(picking===id) n.classList.add('pick');
     }
+    updateExamUI();
     $("#nOccM").textContent=occ; $("#nFreeM").textContent=free;
     $("#nOccS").textContent=occ; $("#nFreeS").textContent=free;
   }
@@ -501,7 +517,7 @@
   function goScan(){ picking=null; show('scScan'); bumpIdle(45000); }
   function goSeats(m){ mode=m; scanned = (m==='pick'||m==='report')?scanned:null; picking=null;   // 신고 모드에서도 스캔 정보 유지 → 취소 시 예약(pick) 복원
     const g=$("#greet");
-    if(m==='pick'){ g.className='greet pick'; g.innerHTML=`<b>${esc((scanned&&(scanned.name||scanned.student_no))||'회원')}</b>님, 원하는 <b>빈 좌석</b>을 눌러 예약하세요`; }
+    if(m==='pick'){ g.className='greet pick'; g.innerHTML=`<b>${esc((scanned&&(scanned.name||scanned.student_no))||'회원')}</b>님, 원하는 <b>빈 좌석</b>을 눌러 예약하세요${CFG.exam_mode?(scanned&&scanned.wait?' · 다른 좌석을 예약하면 대기는 취소돼요':' · 이용 중인 좌석은 눌러서 대기'):''}`; }
     else if(m==='report'){ g.className='greet report'; g.innerHTML=`${I_FLAG}신고할 좌석을 눌러 주세요`; }
     else { g.className='greet view'; g.textContent='좌석 이용현황'; }
     const rb=$("#btnReport"); if(rb){ rb.classList.toggle('on', m==='report'); rb.textContent = m==='report'?'신고 취소':'좌석 신고'; }
@@ -525,6 +541,12 @@
     }
     if(mode!=='pick' || !scanned){ toast('예약하려면 리더기에 앱의 QR을 대 주세요'); return; }
     if(s.is_blocked){ toast('점검 중인 좌석이에요'); return; }
+    if(CFG.exam_mode){
+      const wc=+s.wait_count||0, w=scanned.wait;
+      if((scanned.used||[]).includes(id)){ toast('오늘 이미 이용한 좌석이에요. 시험기간에는 다른 좌석을 골라 주세요'); return; }
+      if(!s.occupied && wc>0 && w && w.seat_id===id && w.position===1){ picking=id; renderSeats(); openTime(id); return; }   // 내 입실 차례
+      if(s.occupied || wc>0){ openWait(id); return; }
+    }
     if(s.occupied){ toast('이미 이용 중인 좌석이에요'); return; }
     picking=id; renderSeats(); openTime(id);
   }
@@ -532,10 +554,12 @@
   // ── 시간 선택 모달 ──
   let chosenMin=60;
   function openTime(id){
-    chosenMin=0;   // 기본 선택 없음 — 사용자가 직접 골라야 예약하기 활성화
-    $("#modal").innerHTML=`<h2>${id}번 좌석</h2><p>이용 시간을 선택하세요</p>
-      <div class="times" id="times">${[30,60,90,120].map(m=>`<button data-m="${m}">${m<60?m+'분':Math.floor(m/60)+'시간'+(m%60?' '+(m%60)+'분':'')}</button>`).join('')}</div>
-      <div class="btns"><button class="cc" id="mc">취소</button><button class="go" id="mg" disabled>예약하기</button></div>`;
+    const exam=!!CFG.exam_mode;
+    chosenMin = exam?120:0;   // 평상시: 기본 선택 없음(직접 골라야 예약하기 활성화) · 시험기간: 2시간 고정
+    $("#modal").innerHTML=`<h2>${id}번 좌석</h2><p>${exam?'시험기간에는 2시간으로 예약돼요':'이용 시간을 선택하세요'}</p>
+      <div class="times" id="times"${exam?' style="grid-template-columns:1fr"':''}>${(exam?[120]:[30,60,90,120]).map(m=>`<button data-m="${m}" class="${exam?'on':''}">${m<60?m+'분':Math.floor(m/60)+'시간'+(m%60?' '+(m%60)+'분':'')}</button>`).join('')}</div>
+      ${exam?'<p class="examnote">연장은 할 수 없고, 오늘은 이 좌석을 다시 예약할 수 없어요</p>':''}
+      <div class="btns"><button class="cc" id="mc">취소</button><button class="go" id="mg"${exam?'':' disabled'}>예약하기</button></div>`;
     $("#ov").hidden=false;
     document.querySelectorAll('#times button').forEach(b=>b.onclick=()=>{ chosenMin=+b.dataset.m;
       document.querySelectorAll('#times button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); $("#mg").disabled=false; });
@@ -555,11 +579,11 @@
     await loadStatus();
   }
 
-  function done(kind, seat, endAt){
+  function done(kind, seat, endAt, pos){
     if(kind==='reserve') playDing();   // 예약 완료 사운드
     const hm=endAt?hmK(endAt):'';
-    const title=kind==='reserve'?'예약 완료':kind==='renew'?'연장 완료':'퇴실 완료';
-    const msg=kind==='checkout'?'이용해 주셔서 감사해요':'편안하게 이용하세요';
+    const title=kind==='reserve'?'예약 완료':kind==='renew'?'연장 완료':kind==='wait'?'대기 등록':'퇴실 완료';
+    const msg=kind==='checkout'?'이용해 주셔서 감사해요':kind==='wait'?`${pos||1}순위예요<br>1순위가 되면 입실 시각을 알림으로 보내드려요`:'편안하게 이용하세요';
     $("#modal").innerHTML=`<div class="em">${I_CHECK}</div><h2>${title}</h2>
       <p>${seat?seat+'번 좌석':''}${hm?' · 종료 '+hm:''}<br>${msg}</p>
       <div class="btns"><button class="go" id="mok">확인 <span class="cd" id="cd">(5)</span></button></div>`;
@@ -610,9 +634,10 @@
       const rows=await rpc('verify_qr',{p_token:token}); const u=Array.isArray(rows)?rows[0]:rows;
       closeModal();
       if(!u||!u.user_id){ toast('QR이 만료됐어요. 앱을 다시 열어 새 QR을 대 주세요', true); return; }
-      scanned={token, user_id:u.user_id, name:u.name, student_no:u.student_no};
+      scanned={token, user_id:u.user_id, name:u.name, student_no:u.student_no, used:[], wait:null};
+      try{ const me=await rpc('kiosk_me',{p_token:token}); if(me&&me.ok){ scanned.used=me.used_today||[]; scanned.wait=me.wait||null; } }catch(_){}   // v10 적용 전이면 건너뜀
       const had = await offerCheckout(u.user_id);
-      if(!had) goSeats('pick');
+      if(!had){ if(CFG.exam_mode && scanned.wait) showMyWait(); else goSeats('pick'); }
     }catch(e){ closeModal(); toast('QR을 확인하지 못했어요. 다시 대 주세요', true); }
   }
 
@@ -629,15 +654,16 @@
   function showMyReservation(){
     const r=myRes; const remMin=Math.max(0,Math.round((new Date(r.end_at)-now())/60000));
     const hm=hmK(r.end_at);
-    show('scSeats'); $("#greet").className='greet pick'; $("#greet").innerHTML=`이용 중인 <b>${r.seat_id}번</b> 좌석을 눌러 퇴실·연장할 수 있어요`; renderSeats();
+    show('scSeats'); $("#greet").className='greet pick'; $("#greet").innerHTML=`이용 중인 <b>${r.seat_id}번</b> 좌석을 눌러 ${CFG.exam_mode?'퇴실':'퇴실·연장'}할 수 있어요`; renderSeats();
     $("#modal").innerHTML=`<h2>${esc((scanned&&scanned.name)||'회원')}님</h2>
       <p style="margin-bottom:26px">현재 <b style="color:var(--tint-d)">${r.seat_id}번 좌석</b> 이용 중이에요</p>
       <div class="myinfo"><div class="mi"><div class="k">남은 시간</div><div class="v mono">${fmtRem(remMin)}</div></div>
         <div class="mi"><div class="k">종료 시각</div><div class="v mono">${hm}</div></div></div>
-      <div class="btns"><button class="cc" id="mext">연장하기</button><button class="go out" id="mout">퇴실하기</button></div>
+      ${CFG.exam_mode?'<p class="examnote">시험기간에는 연장할 수 없어요</p>':''}
+      <div class="btns">${CFG.exam_mode?'':'<button class="cc" id="mext">연장하기</button>'}<button class="go out" id="mout">퇴실하기</button></div>
       <button class="linkbtn" id="mkeep">닫기</button>`;
     $("#ov").hidden=false;
-    $("#mkeep").onclick=closeModal; $("#mext").onclick=openRenew; $("#mout").onclick=doCheckout;
+    $("#mkeep").onclick=closeModal; if($("#mext")) $("#mext").onclick=openRenew; $("#mout").onclick=doCheckout;
   }
   function openRenew(){
     chosenMin=0;
@@ -662,6 +688,63 @@
     try{ const res=await rpc('checkout',{p_token:scanned.token});
       if(res.ok){ done('checkout', myRes.seat_id, null); } else { toast(errKo(res.error)||'퇴실하지 못했어요',true); closeModal(); }
     }catch(e){ toast(NETERR,true); } await loadStatus();
+  }
+
+  // ── 시험기간 대기 ──
+  function openWait(id){
+    const s=statusMap[id]||{}, w=scanned&&scanned.wait, wc=+s.wait_count||0;
+    const st = s.occupied ? ['현재 이용', hmK(s.end_at)+' 종료'] : ['1순위 입실', s.hold_until?hmK(s.hold_until)+'까지':'대기 중'];
+    let body, btns;
+    if(w && w.seat_id===id){
+      body=`<p style="margin-bottom:26px">이 좌석에 <b style="color:var(--tint-d)">${w.position}순위</b>로 대기 중이에요</p>`;
+      btns=`<button class="cc" id="mc">닫기</button><button class="go out" id="mwc">대기 취소</button>`;
+    } else if(w){
+      body=`<p style="margin-bottom:26px"><b>${w.seat_id}번</b> 좌석에 대기 중이에요<br>대기는 한 좌석에만 걸 수 있어요</p>`;
+      btns=`<button class="cc" id="mc">닫기</button><button class="go" id="mws">이 좌석으로 바꾸기</button>`;
+    } else {
+      body=`<p style="margin-bottom:26px">1순위가 되면 입실할 수 있는 시각을<br>알림으로 보내드려요</p>`;
+      btns=`<button class="cc" id="mc">취소</button><button class="go" id="mwj">대기 걸기</button>`;
+    }
+    $("#modal").innerHTML=`<h2>${id}번 좌석</h2>
+      <div class="myinfo"><div class="mi"><div class="k">${st[0]}</div><div class="v mono">${st[1]}</div></div>
+        <div class="mi"><div class="k">대기</div><div class="v mono">${wc}명</div></div></div>
+      ${body}<div class="btns">${btns}</div>`;
+    $("#ov").hidden=false;
+    $("#mc").onclick=()=>{ closeModal(); picking=null; renderSeats(); };
+    if($("#mwj")) $("#mwj").onclick=()=>doJoin(id);
+    if($("#mwc")) $("#mwc").onclick=()=>doWaitCancel(true);
+    if($("#mws")) $("#mws").onclick=async()=>{ if(await doWaitCancel(false)) doJoin(id); };
+  }
+  async function doJoin(id){
+    if(DEMO){ scanned.wait={seat_id:id,position:(+(statusMap[id]||{}).wait_count||0)+1}; done('wait', id, null, scanned.wait.position); return; }
+    const b=$("#mwj")||$("#mws"); if(b) b.disabled=true;
+    try{ const r=await rpc('wait_join',{p_token:scanned.token,p_seat:id});
+      if(r&&r.ok){ scanned.wait={seat_id:id,position:r.position,occupied_until:r.occupied_until}; done('wait', id, null, r.position); }
+      else { toast(errKo(r&&r.error)||'대기를 걸지 못했어요',true); closeModal(); }
+    }catch(e){ toast(NETERR,true); }
+    await loadStatus();
+  }
+  async function doWaitCancel(close){
+    if(DEMO){ scanned.wait=null; if(close){ closeModal(); toast('대기를 취소했어요'); } return true; }
+    try{ const r=await rpc('wait_cancel',{p_token:scanned.token});
+      if(r&&r.ok){ scanned.wait=null; if(close){ closeModal(); toast('대기를 취소했어요'); goSeats('pick'); } await loadStatus(); return true; }
+      toast('취소할 대기가 없어요',true); return false;
+    }catch(e){ toast(NETERR,true); return false; }
+  }
+  function showMyWait(){   // 스캔한 회원이 대기 중일 때
+    const w=scanned.wait, s=statusMap[w.seat_id]||{};
+    goSeats('pick');
+    const ready = w.position===1 && !s.occupied;
+    $("#modal").innerHTML=`<h2>${esc(scanned.name||'회원')}님</h2>
+      <p style="margin-bottom:26px">${ready?`<b style="color:var(--tint-d)">${w.seat_id}번 좌석</b>에 지금 입실할 수 있어요`:`<b style="color:var(--tint-d)">${w.seat_id}번 좌석</b> 대기 ${w.position}순위예요`}</p>
+      <div class="myinfo"><div class="mi"><div class="k">${ready?'입실 마감':'현재 이용 종료'}</div><div class="v mono">${ready?(w.hold_until?hmK(w.hold_until):'—'):(w.occupied_until?hmK(w.occupied_until):'—')}</div></div>
+        <div class="mi"><div class="k">내 순번</div><div class="v mono">${w.position}순위</div></div></div>
+      <div class="btns"><button class="cc" id="mwc">대기 취소</button>${ready?'<button class="go" id="min">입실하기</button>':'<button class="go" id="mclose">좌석 보기</button>'}</div>
+      ${ready?'<button class="linkbtn" id="mclose">좌석 보기</button>':''}`;
+    $("#ov").hidden=false;
+    $("#mwc").onclick=()=>doWaitCancel(true);
+    if($("#min")) $("#min").onclick=()=>{ picking=w.seat_id; renderSeats(); openTime(w.seat_id); };
+    $("#mclose").onclick=closeModal;
   }
 
   // A12: 미사용 좌석 신고
@@ -806,18 +889,22 @@
       try{ await rpc('admin_resolve',{p_pin:adminPin,p_id:b.dataset.id}); loadAReports(); }catch(e){} });
   }
 
-  let CFG={max_minutes:120,renew_window_min:30,idle_return_sec:60,renew_mode:'reset',prevent_dup:true,night_off:false,daily_max_min:0,admin_pin:'0000'};
+  let CFG={max_minutes:120,renew_window_min:30,idle_return_sec:60,renew_mode:'reset',prevent_dup:true,night_off:false,daily_max_min:0,exam_mode:false,wait_hold_min:10,admin_pin:'0000'};
   async function loadCfg(){   // 시작 시 + 주기적으로 운영설정 로드(야간끄기·1일한도 등 즉시 반영)
     if(DEMO) return; let c=null;
-    try{ c=await rest('app_config?select=id,max_minutes,renew_window_min,renew_mode,idle_return_sec,prevent_dup,night_off,daily_max_min&id=eq.1'); }
-    catch(e){ try{ c=await rest('app_config?select=id,max_minutes,renew_window_min,renew_mode,idle_return_sec,prevent_dup&id=eq.1'); }catch(_){} }   // 새 컬럼 미적용 시 폴백. admin_pin 등 민감 컬럼 제외
-    if(c&&c[0]) CFG=Object.assign(CFG,c[0]); updateNight();
+    try{ c=await rest('app_config?select=id,max_minutes,renew_window_min,renew_mode,idle_return_sec,prevent_dup,night_off,daily_max_min,exam_mode,wait_hold_min&id=eq.1'); }
+    catch(e){ try{ c=await rest('app_config?select=id,max_minutes,renew_window_min,renew_mode,idle_return_sec,prevent_dup,night_off,daily_max_min&id=eq.1'); }
+      catch(_){ try{ c=await rest('app_config?select=id,max_minutes,renew_window_min,renew_mode,idle_return_sec,prevent_dup&id=eq.1'); }catch(__){} } }   // 새 칸 미적용 시 폴백. admin_pin 등 민감 칸 제외
+    const wasExam=!!CFG.exam_mode;
+    if(c&&c[0]) CFG=Object.assign(CFG,c[0]); updateNight(); updateExamUI();
+    if(wasExam!==!!CFG.exam_mode) renderSeats();
   }
   async function renderASettings(){
     await loadCfg();
     const st=(k,label,desc,val,step,suf)=>`<div class="srow"><div class="sl">${label}<small>${desc}</small></div>
       <div class="stepper"><button data-k="${k}" data-d="-${step}">−</button><div class="val">${val}${suf}</div><button data-k="${k}" data-d="${step}">+</button></div></div>`;
     $("#abody").innerHTML=`<div class="asec"><h3>설정</h3>
+      <div class="srow"><div class="sl">시험기간 운영<small>켜면 2시간 고정 · 연장 없음 · 오늘 쓴 좌석 재예약 불가 · 이용 중인 좌석 대기</small></div><button class="sw ${CFG.exam_mode?'on':''}" id="swExam"></button></div>
       ${st('max_minutes','최대 이용 시간','1회 예약 기준 최대',CFG.max_minutes,30,'분')}
       ${st('renew_window_min','연장 가능 시점','종료 N분 전부터 연장 허용',CFG.renew_window_min,5,'분 전')}
       ${st('idle_return_sec','무동작 자동 복귀','예약 화면에서 입력 없을 때',CFG.idle_return_sec,15,'초')}
@@ -835,6 +922,11 @@
     document.querySelectorAll('#segMode button').forEach(b=>b.onclick=()=>saveCfg({renew_mode:b.dataset.v}));
     $("#swDup").onclick=()=>saveCfg({prevent_dup:!CFG.prevent_dup});
     $("#swNight").onclick=()=>{ saveCfg({night_off:!CFG.night_off}); updateNight(); };
+    $("#swExam").onclick=()=>{ const on=!CFG.exam_mode;
+      $("#modal").innerHTML=`<h2>${on?'시험기간 운영 시작':'시험기간 운영 종료'}</h2>
+        <p>${on?'예약이 2시간으로 고정되고 연장할 수 없어요.<br>오늘 쓴 좌석은 다시 예약할 수 없고,<br>이용 중인 좌석에 대기를 걸 수 있어요.':'평상시 운영으로 돌아가요.<br>걸려 있던 대기는 모두 취소되고 알림이 가요.'}</p>
+        <div class="btns"><button class="cc" id="mc">취소</button><button class="go" id="mgo">${on?'시작':'종료'}</button></div>`;
+      $("#ov").hidden=false; $("#mc").onclick=closeModal; $("#mgo").onclick=()=>{ closeModal(); saveCfg({exam_mode:on}); updateExamUI(); renderSeats(); }; };
     $("#btnChPin").onclick=changePin;
     document.querySelectorAll('#segRot button').forEach(b=>b.onclick=()=>{ ROT=+b.dataset.r; try{ localStorage.setItem('gn_rot',String(ROT)); }catch(_){} fit(); renderASettings(); });
   }

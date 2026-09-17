@@ -101,6 +101,10 @@
   .leave{flex:0 0 auto;width:100%;height:50px;margin-top:12px;border:0;border-radius:12px;background:var(--red-bg);color:var(--red);font-size:17px;font-weight:600}
   .leave:active{background:var(--red-press)}
   .noseat{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;padding:14px 0}
+  .noseat .exam{margin-top:10px;font-size:13px;font-weight:600;color:var(--amber);background:var(--amber-bg);padding:6px 12px;border-radius:99px}
+  .wbox{background:var(--sub);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:3px}
+  .wbox b{font-size:17px;font-weight:700;color:var(--ink)} .wbox span{font-size:14px;color:var(--ink2);line-height:1.45}
+  .wbox.ready{background:var(--tint-bg)} .wbox.ready b{color:var(--tint-text)}
   .noseat .a{font-size:17px;color:var(--ink);font-weight:600} .noseat .b{font-size:15px;color:var(--ink2);line-height:1.5}
   .zhd{display:flex;align-items:center;justify-content:space-between;min-height:30px;flex:0 0 auto}
   .more{display:inline-flex;align-items:center;gap:4px;background:none;border:0;color:var(--tint-text);font-weight:500;font-size:15px;height:44px;margin:-7px -6px -7px 0;padding:0 6px 0 14px}
@@ -330,6 +334,16 @@
   .note{font-size:13px;color:var(--ink2);text-align:center;margin-top:16px;line-height:1.55}
   .msg{margin-top:12px;padding:11px 14px;border-radius:12px;font-size:15px;text-align:center;line-height:1.45;white-space:pre-line}
   .msg:empty{display:none}
+  /* 가입 동의: 개인정보 안내 + 필수 동의 */
+  .consent{margin-top:14px;background:var(--card);border-radius:12px;padding:13px 15px;max-height:230px;overflow-y:auto;-webkit-overflow-scrolling:touch;text-align:left}
+  .consent .ct2{display:block;font-size:15px;font-weight:600;margin-bottom:8px}
+  .consent dl{margin:0;display:grid;grid-template-columns:4.4em minmax(0,1fr);gap:7px 10px;font-size:13px;line-height:1.5}
+  .consent dt{color:var(--ink2);font-weight:600}
+  .consent dd{margin:0;color:var(--ink)}
+  .agree{display:flex;align-items:flex-start;gap:10px;width:100%;margin-top:10px;padding:12px 14px;border:0;border-radius:12px;background:var(--card);text-align:left;font-size:15px;color:var(--ink);line-height:1.45}
+  .agree i{flex:0 0 auto;width:22px;height:22px;margin-top:1px;border-radius:6px;border:2px solid var(--sep2);display:flex;align-items:center;justify-content:center}
+  .agree[aria-checked="true"] i{background:var(--tint);border-color:var(--tint)}
+  .agree[aria-checked="true"] i::after{content:"";width:10px;height:5px;border:solid #fff;border-width:0 0 2.5px 2.5px;transform:translateY(-1px) rotate(-45deg)}
   .msg.err{background:var(--red-bg);color:var(--red)} .msg.ok{background:var(--tint-bg);color:var(--tint-text)}
 
   /* ── 오버레이: 모달 · 메뉴 시트 · QR 크게 ── */
@@ -628,9 +642,33 @@
         <button class="leave" id="bout">퇴실하기</button>`;
       $("#bout").onclick=doCheckout;
     } else {
-      box.innerHTML=`<div class="noseat"><div class="a">이용 중인 좌석이 없어요</div>
-        <div class="b">그린나래 키오스크에서<br>QR을 스캔해 예약하세요</div></div>`;
+      let mw=null; try{ mw=await rpc('me_wait',{}); }catch(_){}   // upgrade_v10 적용 전이면 건너뜀
+      if(!$("#resv")) return;
+      const w=mw&&mw.ok?mw.wait:null, exam=!!(mw&&mw.exam);
+      if(w){
+        const ready = w.position===1 && !w.occupied_until;
+        box.innerHTML=`<div class="seatmid">
+            <div><div class="rm">시험기간 대기</div><div class="stt"><span class="mono">${esc(w.seat_id)}</span>번 좌석 · ${w.position}순위</div></div>
+            <div class="wbox ${ready?'ready':''}">${ready
+              ? `<b>지금 입실할 수 있어요</b><span>${w.hold_until?`<span class="mono">${hm(w.hold_until)}</span>까지 `:''}키오스크에서 QR을 대고 입실해 주세요</span>`
+              : w.position===1
+                ? `<b>다음 차례예요</b><span>지금 이용이 <span class="mono">${hm(w.occupied_until)}</span>에 끝나면 입실할 수 있어요</span>`
+                : `<b>앞에 ${w.position-1}명이 기다리고 있어요</b><span>1순위가 되면 입실 시각을 알림으로 보내드려요</span>`}</div>
+          </div>
+          <button class="leave" id="wcancel">대기 취소</button>`;
+        $("#wcancel").onclick=cancelMyWait;
+      } else {
+        box.innerHTML=`<div class="noseat"><div class="a">이용 중인 좌석이 없어요</div>
+          <div class="b">그린나래 키오스크에서<br>QR을 스캔해 예약하세요</div>${exam?'<div class="exam">시험기간 운영 중 · 예약 2시간 · 이용 중인 좌석은 대기 가능</div>':''}</div>`;
+      }
     }
+  }
+
+  function cancelMyWait(){
+    confirmSheet('대기 취소','대기를 취소할까요?<br>다시 걸면 맨 뒤 순번이 돼요.','대기 취소',true,async()=>{ hideOv();
+      try{ const r=await rpc('me_wait_cancel',{}); toast(okOf(r)?'대기를 취소했어요':'취소할 대기가 없어요', okOf(r)?'ok':'info'); }
+      catch(e){ toast(netMsg(e),'err'); }
+      loadResv(); });
   }
 
   async function loadZoneSummary(){
@@ -715,7 +753,7 @@
         <div class="gtitle">이용</div><div class="list">
           ${rowHTML('mHist','hist','내 이용 내역')}${rowHTML('mReport','report','좌석 신고')}${rowHTML('mNotice','notice','공지사항')}</div>
         <div class="gtitle">설정</div><div class="list">
-          <div class="row" id="mPush"><span class="ic" style="background:${MI.bell[0]}">${MI.bell[1]}</span><span class="tx">알림<small>예약 완료 · 종료 30분 전 · 이용 종료</small></span><span class="sw" id="pushtgl" role="switch" aria-checked="false"></span></div>
+          <div class="row" id="mPush"><span class="ic" style="background:${MI.bell[0]}">${MI.bell[1]}</span><span class="tx">알림<small>예약 완료 · 종료 30분 전 · 이용 종료 · 대기 차례</small></span><span class="sw" id="pushtgl" role="switch" aria-checked="false"></span></div>
           ${rowHTML('mPw','pw','비밀번호 변경')}
           ${installAvailable()?rowHTML('mInstall','install','홈 화면에 앱 설치'):''}
           ${rowHTML('mContact','contact','문의하기')}</div>
@@ -1253,12 +1291,12 @@
       ${top.length?`<div class="agroup" style="margin-top:0">${top.map(x=>`<div class="zrow"><span>${esc(x.seat)}번 좌석</span><span><b class="mono">${x.n}</b>회</span></div>`).join('')}</div>`:'<p class="empty" style="padding:12px 0">아직 데이터가 없어요</p>'}`; }
 
   // 관리 기록 — 서버 원문(JSON·코드)을 사람이 읽는 문장으로
-  const ACT_KO={'강제퇴실':'강제 퇴실','강제종료':'강제 퇴실','설정변경':'설정 변경','시간조정':'시간 조정','신고처리':'신고 처리','점검설정':'점검 설정','점검해제':'점검 해제','회원탈퇴':'회원 탈퇴','관리자지정':'관리자 지정','관리자해제':'관리자 해제'};
+  const ACT_KO={'강제퇴실':'강제 퇴실','강제종료':'강제 퇴실','설정변경':'설정 변경','시간조정':'시간 조정','신고처리':'신고 처리','점검설정':'점검 설정','점검해제':'점검 해제','회원탈퇴':'회원 탈퇴','관리자지정':'관리자 지정','관리자해제':'관리자 해제','자동탈퇴':'자동 탈퇴'};
   const CFG_KO={max_minutes:v=>`최대 이용 시간 ${v}분`,renew_window_min:v=>`연장 가능 시점 종료 ${v}분 전`,idle_return_sec:v=>`무동작 자동 복귀 ${v}초`,
     renew_mode:v=>`연장 방식 ${v==='add'?'남은 시간에 추가':'지금부터'}`,prevent_dup:v=>`한 사람 한 자리 ${v?'켬':'끔'}`,night_off:v=>`야간 화면 끄기 ${v?'켬':'끔'}`,
-    daily_max_min:v=>`1일 최대 이용 ${+v>0?v+'분':'무제한'}`};
+    daily_max_min:v=>`1일 최대 이용 ${+v>0?v+'분':'무제한'}`, exam_mode:v=>`시험기간 운영 ${v?'시작':'종료'}`, wait_hold_min:v=>`대기 입실 유예 ${v}분`};
   function logWho(x){ return x.actor_name ? `${esc(x.actor_name)}<span class="mono">${esc(x.actor_sno||'')}</span>`
-    : (x.actor_kind==='kiosk' ? '키오스크' : ''); }   // v9 이전 기록은 실행자가 없음
+    : (x.actor_kind==='kiosk' ? '키오스크' : x.actor_kind==='system' ? '자동 처리' : ''); }   // v9 이전 기록은 실행자가 없음
   function logDetail(x){ const d=String(x.detail||'');
     if(d.charAt(0)==='{'){ try{ const o=JSON.parse(d); return Object.keys(o).map(k=>CFG_KO[k]?CFG_KO[k](o[k]):'설정 값 변경').join(' · '); }catch(_){ return '설정 값 변경'; } }
     return d.replace(/^([A-Z]\d{1,2}) (-?\d+)분$/,(m,s,n)=>`${s}번 좌석 ${+n>0?'+':''}${n}분`); }
@@ -1276,16 +1314,19 @@
     $("#bk").onclick=screenHome; loadConfigAdmin(); }
   async function loadConfigAdmin(){
     let c=null;
-    try{ c=await rest('app_config?select=max_minutes,renew_window_min,idle_return_sec,renew_mode,prevent_dup,night_off,daily_max_min&id=eq.1'); }
+    try{ c=await rest('app_config?select=max_minutes,renew_window_min,idle_return_sec,renew_mode,prevent_dup,night_off,daily_max_min,exam_mode,wait_hold_min&id=eq.1'); }
+    catch(e0){ try{ c=await rest('app_config?select=max_minutes,renew_window_min,idle_return_sec,renew_mode,prevent_dup,night_off,daily_max_min&id=eq.1'); }
     catch(e){ try{ c=await rest('app_config?select=max_minutes,renew_window_min,idle_return_sec,renew_mode,prevent_dup,night_off&id=eq.1'); }
-      catch(_){ try{ c=await rest('app_config?select=max_minutes,renew_window_min,idle_return_sec,renew_mode,prevent_dup&id=eq.1'); }catch(__){} } }
+      catch(_){ try{ c=await rest('app_config?select=max_minutes,renew_window_min,idle_return_sec,renew_mode,prevent_dup&id=eq.1'); }catch(__){} } } }
     if(c&&c[0]) ACFG=c[0];
     const b=$("#cfgbody"); if(!b) return;
     if(!(c&&c[0])){ b.innerHTML='<p class="empty" style="padding:24px 0">설정을 불러오지 못했어요</p>'; return; }
     const stp=(k,l,sub,v)=>`<div class="srow2"><div class="sl">${l}<small>${sub}</small></div><div class="stpr"><button data-k="${k}" data-d="-1" aria-label="${l} 줄이기">−</button><b>${v}</b><button data-k="${k}" data-d="1" aria-label="${l} 늘리기">+</button></div></div>`;
     const sw=(id,l,sub,on)=>`<div class="srow2"><div class="sl">${l}<small>${sub}</small></div><button class="sw ${on?'on':''}" id="${id}" role="switch" aria-checked="${!!on}" aria-label="${l}"></button></div>`;
     const V=(v,u)=>v==null?'—':v+u;
-    b.innerHTML=`<div class="gtitle">예약</div><div class="agroup" style="margin-top:0">
+    b.innerHTML=`${'exam_mode' in ACFG?`<div class="gtitle">운영 방식</div><div class="agroup" style="margin-top:0">
+        ${sw('swExam2','시험기간 운영',`2시간 고정 · 연장 없음 · 오늘 쓴 좌석 재예약 불가 · 이용 중인 좌석 대기(1순위 입실 ${ACFG.wait_hold_min||10}분)`,ACFG.exam_mode)}</div>`:''}
+      <div class="gtitle">예약</div><div class="agroup" style="margin-top:0">
         ${stp('max_minutes','최대 이용 시간','한 번 예약할 때',V(ACFG.max_minutes,'분'))}
         ${stp('daily_max_min','1일 최대 이용','좌석 독점 방지 · 0이면 무제한',ACFG.daily_max_min>0?ACFG.daily_max_min+'분':'무제한')}
         ${sw('swDup2','한 사람 한 자리','같은 회원의 중복 예약 막기',ACFG.prevent_dup)}</div>
@@ -1300,6 +1341,10 @@
     $("#cmReset").onclick=()=>saveACfg({renew_mode:'reset'}); $("#cmAdd").onclick=()=>saveACfg({renew_mode:'add'});
     $("#swDup2").onclick=()=>saveACfg({prevent_dup:!ACFG.prevent_dup});
     $("#swNight2").onclick=()=>saveACfg({night_off:!ACFG.night_off});
+    if($("#swExam2")) $("#swExam2").onclick=()=>{ const on=!ACFG.exam_mode;
+      confirmSheet(on?'시험기간 운영 시작':'시험기간 운영 종료',
+        on?'예약이 2시간으로 고정되고 연장할 수 없어요.<br>오늘 쓴 좌석은 다시 예약할 수 없고, 이용 중인 좌석에 대기를 걸 수 있어요.':'평상시 운영으로 돌아가요.<br>걸려 있던 대기는 모두 취소되고 알림이 가요.',
+        on?'시작':'종료', !on, ()=>{ hideOv(); saveACfg({exam_mode:on}); }); };
     $("#cPin").onclick=changeKioskPin; }
   function cfgStep(k,d){ const step=(k==='idle_return_sec'?15:(k==='renew_window_min'?5:(k==='daily_max_min'?30:10))); let v=(+ACFG[k]||0)+d*step;
     if(k==='max_minutes') v=Math.max(30,Math.min(240,v));
@@ -1416,7 +1461,7 @@
     screen.innerHTML=`<div class="auth"><div class="authbox">
       <img class="applogo" src="/icon.svg" alt="">
       <h1>그린나래</h1>
-      <p class="s">${signup?'학번·이름·비밀번호로 가입하세요':'학번과 비밀번호로 로그인하세요'}</p>
+      <p class="s">${signup?'학번·이름·휴대폰 번호로 가입하세요':'학번과 비밀번호로 로그인하세요'}</p>
       <div class="group">
         <div class="f"><input id="sno" inputmode="numeric" autocomplete="username" placeholder="학번" enterkeyhint="next"></div>
         ${signup?`<div class="f"><input id="nm" autocomplete="name" placeholder="이름" enterkeyhint="next"></div>
@@ -1424,14 +1469,16 @@
         <div class="f"><input id="pw" type="password" autocomplete="${signup?'new-password':'current-password'}" placeholder="${signup?'비밀번호 (6자 이상)':'비밀번호'}" enterkeyhint="${signup?'next':'go'}"></div>
         ${signup?`<div class="f"><input id="pw2" type="password" autocomplete="new-password" placeholder="비밀번호 확인" enterkeyhint="go"></div>`:''}
       </div>
+      ${signup?consentHTML():''}
       <div id="msg" class="msg" role="alert"></div>
       ${!signup?`<div class="optrow"><span>자동 로그인</span><button class="sw ${autoLogin?'on':''}" id="autosw" role="switch" aria-checked="${autoLogin}" aria-label="자동 로그인"></button></div>`:''}
       <button class="btn" id="go">${signup?'가입하고 시작':'로그인'}</button>
       <button class="link" id="swap">${signup?'이미 계정이 있어요 · 로그인':'계정이 없나요? 회원가입'}</button>
       ${!signup?`<button class="link sub" id="pwreset">비밀번호를 잊으셨나요?</button>`:''}
-      ${signup?`<p class="note">가입하면 좌석 예약·알림과 신고 처리 시 연락을 위한<br>학번·이름·휴대폰 번호 수집·이용에 동의하게 돼요.<br>탈퇴하면 모든 정보가 바로 삭제돼요.</p>`:''}
     </div></div>`;
-    const upd=()=>{ const ok=$("#sno").value.trim() && $("#pw").value.length>0 && (!signup || ($("#nm").value.trim() && $("#ph").value.trim() && $("#pw2").value.length>0)); $("#go").classList.toggle('on',!!ok); };
+    agreed=false;
+    const upd=()=>{ const ok=$("#sno").value.trim() && $("#pw").value.length>0 && (!signup || ($("#nm").value.trim() && $("#ph").value.trim() && $("#pw2").value.length>0 && agreed)); $("#go").classList.toggle('on',!!ok); };
+    bindAgree(upd);
     const ins=[...screen.querySelectorAll('.group input')];
     ins.forEach((el,ix)=>{ el.oninput=upd;
       el.addEventListener('keydown',e=>{ if(e.key==='Enter' && !e.isComposing){ e.preventDefault(); if(ix<ins.length-1) ins[ix+1].focus(); else submitAuth(); } }); });
@@ -1442,6 +1489,23 @@
     if($("#autosw")) $("#autosw").onclick=()=>{ autoLogin=!autoLogin; const s=$("#autosw"); s.classList.toggle('on',autoLogin); s.setAttribute('aria-checked',String(autoLogin)); };
     $("#go").onclick=submitAuth;
   }
+  //  개인정보 수집·이용 안내 — 내용이 바뀌면 CONSENT_VER 를 올려 누가 어느 안내에 동의했는지 남긴다
+  const CONSENT_VER='2026-09-17';
+  let agreed=false;
+  function consentHTML(){ return `<div class="consent" role="region" aria-label="개인정보 수집·이용 안내" tabindex="0">
+      <b class="ct2">개인정보 수집·이용 안내</b>
+      <dl>
+        <dt>수집 항목</dt><dd>학번, 이름, 휴대폰 번호, 비밀번호(암호화해 저장), 좌석 이용·대기 기록, 신고 기록, 알림 수신 정보</dd>
+        <dt>이용 목적</dt><dd>독서실 좌석 예약·연장·퇴실·대기 관리, 이용 알림 발송, 좌석 신고 처리를 위한 본인 확인과 연락</dd>
+        <dt>보관 기간</dt><dd><b>가입일로부터 5년.</b> 기간이 지나면 계정과 모든 정보가 자동으로 삭제(자동 탈퇴)되며, 보관 기간은 연장되지 않아요. 그 전에 탈퇴하면 바로 삭제돼요.</dd>
+        <dt>저장 위치</dt><dd>Supabase, Inc.(미국)의 데이터베이스에 저장되며, 서버는 Amazon Web Services(AWS) 싱가포르 리전에 있어요. 앱 화면은 Cloudflare, Inc.(미국)의 Cloudflare Pages로 제공되며 이곳에는 개인정보를 저장하지 않아요.</dd>
+        <dt>동의 거부</dt><dd>동의하지 않을 수 있지만, 동의하지 않으면 가입과 좌석 예약을 이용할 수 없어요.</dd>
+      </dl></div>
+    <button class="agree" id="agree" type="button" role="checkbox" aria-checked="false"><i></i><span>위 내용을 확인했으며, 개인정보 수집·이용과 국외 저장에 동의합니다</span></button>`; }
+  function bindAgree(after){ const b=$("#agree"); if(!b) return;
+    b.onclick=()=>{ agreed=!agreed; b.setAttribute('aria-checked',String(agreed));
+      const m=$("#msg"); if(agreed && m && /동의/.test(m.textContent)){ m.textContent=''; m.className='msg'; }   // 동의 안내 오류는 체크하면 바로 지움
+      if(after) after(); }; }
   // 휴대폰 번호: 숫자만 비교(010-1234-5678 · 01X 구번호 포함), 저장·표시는 하이픈 형식
   function phoneDigits(s){ return String(s||'').replace(/\D/g,''); }
   function validPhone(s){ return /^01[016789]\d{7,8}$/.test(phoneDigits(s)); }
@@ -1458,6 +1522,7 @@
     if(pw.length<6){ msg('비밀번호는 6자 이상이어야 해요'); return; }
     if(mode==='signup' && pw!==$("#pw2").value){ msg('비밀번호가 서로 달라요. 다시 확인해 주세요'); return; }
     if(mode==='signup' && !validSno(sno)){ msg('유효하지 않은 학번이에요'); return; }
+    if(mode==='signup' && !agreed){ msg('개인정보 수집·이용에 동의해야 가입할 수 있어요'); return; }
     if(DEMO){ demoProfile={student_no:sno,name:(mode==='signup'?$("#nm").value.trim():demoProfile.name)};
       saveSession({access_token:'demo',user:{id:'demo'}}); enter(); return; }
     $("#go").disabled=true;
@@ -1491,11 +1556,14 @@
     if(!session||!session.user){ throw new Error('세션이 만료됐어요. 다시 로그인해 주세요.'); }
     //  업서트(resolution=merge-duplicates)는 id 칸 수정 권한까지 요구하는데, id 는 보안상 수정 권한을 막아 둬서 항상 실패했다
     //  → 먼저 새로 넣어 보고, 내 행이 이미 있으면(기본키 충돌) 수정이 허용된 칸만 고친다
-    const row={student_no:sno,name:nm,phone:ph||null,consent_at:new Date().toISOString()};
+    const row={student_no:sno,name:nm,phone:ph||null,consent_at:new Date().toISOString(),consent_ver:CONSENT_VER};
     const H={...authH(),"Prefer":"return=minimal"};
-    let r=await net(`${SUPABASE_URL}/rest/v1/profiles`,{method:'POST',headers:H,body:JSON.stringify({id:session.user.id,...row})});
+    const post=()=>net(`${SUPABASE_URL}/rest/v1/profiles`,{method:'POST',headers:H,body:JSON.stringify({id:session.user.id,...row})});
+    let r=await post();
     if(r.ok) return;
     let t=await r.text();
+    if(/consent_ver/.test(t)){ delete row.consent_ver; r=await post(); if(r.ok) return; t=await r.text(); }   // upgrade_v10 적용 전
+
     if(r.status===409 && /profiles_pkey/.test(t)){
       r=await net(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${session.user.id}`,{method:'PATCH',headers:H,body:JSON.stringify(row)});
       if(r.ok) return;
@@ -1513,13 +1581,16 @@
       <div class="group"><div class="f"><input id="sno" inputmode="numeric" placeholder="학번"${lockSno?` value="${lockSno}" readonly aria-readonly="true"`:''}></div>
         <div class="f"><input id="nm" autocomplete="name" placeholder="이름"></div>
         <div class="f"><input id="ph" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="휴대폰 번호" maxlength="13"></div></div>
+      ${consentHTML()}
       <div id="msg" class="msg" role="alert"></div>
       <button class="btn on" id="save">저장하고 시작</button>
       <button class="link" id="pfOut">다른 계정으로 로그인</button>
       <p class="note">휴대폰 번호는 신고 처리 시 연락에만 사용해요.</p></div></div>`;
     const s2=$("#sno"), n2=$("#nm"), h2=$("#ph"); phoneInput(h2);
     $("#pfOut").onclick=logout;
+    agreed=false; bindAgree();
     $("#save").onclick=async()=>{ const sno=lockSno||s2.value.trim(),nm=n2.value.trim();
+      if(!agreed){ msg('개인정보 수집·이용에 동의해야 시작할 수 있어요'); return; }
       if(!sno||!nm){ msg('학번과 이름을 입력하세요'); return; }
       if(!validSno(sno)){ msg('유효하지 않은 학번이에요'); return; }
       if(!validPhone(h2.value)){ msg('휴대폰 번호를 정확히 입력해 주세요\n예: 010-1234-5678'); return; }
