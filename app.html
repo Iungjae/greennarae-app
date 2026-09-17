@@ -324,6 +324,7 @@
   .optrow{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:50px;background:var(--card);border-radius:12px;padding:0 16px;margin-top:12px;font-size:17px}
   .btn{width:100%;height:50px;border:0;border-radius:12px;font-size:17px;font-weight:600;margin-top:16px;background:var(--fill);color:var(--ink3);transition:background .15s,color .15s}
   .btn.on{background:var(--tint);color:#fff} .btn.on:active{background:var(--tint-press)}
+  .f input[readonly]{color:var(--ink2)}   /* 계정에서 가져온 학번(수정 불가) */
   .link{display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;background:none;border:0;color:var(--tint-text);font-size:16px;font-weight:500;margin-top:10px}
   .link.sub{color:var(--ink2);font-size:15px;margin-top:0}
   .note{font-size:13px;color:var(--ink2);text-align:center;margin-top:16px;line-height:1.55}
@@ -1503,17 +1504,22 @@
     if(/student_no/.test(t)) throw new Error('이미 다른 계정에 등록된 학번이에요. 사생회 카카오톡 채널로 문의해 주세요');
     throw new Error(t);
   }
+  //  로그인은 됐는데 회원 정보(학번·이름·번호)가 없는 계정 — 가입이 중간에 끊긴 경우에만 나온다
   function screenProfile(){
     clearTimers();
-    screen.innerHTML=`<div class="auth"><div class="authbox"><h1>프로필 설정</h1><p class="s">처음 한 번만 입력하면 돼요</p>
-      <div class="group"><div class="f"><input id="sno" inputmode="numeric" placeholder="학번"></div>
+    const em=String((session&&session.user&&session.user.email)||''), idSno=em.split('@')[0];
+    const lockSno=validSno(idSno)?idSno:'';   // 회원 정보의 학번은 로그인 학번과 반드시 같아야 함 → 계정에서 가져와 고정
+    screen.innerHTML=`<div class="auth"><div class="authbox"><h1>가입 마무리</h1><p class="s">가입이 끝나지 않은 계정이에요<br>이름과 휴대폰 번호를 입력하면 바로 시작해요</p>
+      <div class="group"><div class="f"><input id="sno" inputmode="numeric" placeholder="학번"${lockSno?` value="${lockSno}" readonly aria-readonly="true"`:''}></div>
         <div class="f"><input id="nm" autocomplete="name" placeholder="이름"></div>
         <div class="f"><input id="ph" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="휴대폰 번호" maxlength="13"></div></div>
       <div id="msg" class="msg" role="alert"></div>
-      <button class="btn on" id="save">저장</button>
+      <button class="btn on" id="save">저장하고 시작</button>
+      <button class="link" id="pfOut">다른 계정으로 로그인</button>
       <p class="note">휴대폰 번호는 신고 처리 시 연락에만 사용해요.</p></div></div>`;
     const s2=$("#sno"), n2=$("#nm"), h2=$("#ph"); phoneInput(h2);
-    $("#save").onclick=async()=>{ const sno=s2.value.trim(),nm=n2.value.trim();
+    $("#pfOut").onclick=logout;
+    $("#save").onclick=async()=>{ const sno=lockSno||s2.value.trim(),nm=n2.value.trim();
       if(!sno||!nm){ msg('학번과 이름을 입력하세요'); return; }
       if(!validSno(sno)){ msg('유효하지 않은 학번이에요'); return; }
       if(!validPhone(h2.value)){ msg('휴대폰 번호를 정확히 입력해 주세요\n예: 010-1234-5678'); return; }
