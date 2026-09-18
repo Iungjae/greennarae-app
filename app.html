@@ -762,7 +762,7 @@
         ${rowHTML('mAReport','aReport','민원 접수함',(unresolvedN?`<span class="badge">${unresolvedN}</span>`:'')+'<i class="chev"></i>')}
         ${rowHTML('mANotice','aNotice','공지 관리')}${rowHTML('mAMembers','aMembers','회원 조회')}
         ${rowHTML('mAStats','aStats','이용 통계')}${rowHTML('mALog','aLog','관리 기록')}
-        ${rowHTML('mAConfig','aConfig','운영 설정')}${rowHTML('mAExport','aExport','데이터 내보내기','')}</div>` : '';
+        ${rowHTML('mAConfig','aConfig','운영 설정')}${rowHTML('mAExport','aExport','전체 백업 받기<small>회원·예약·신고·공지·설정 전부</small>','')}</div>` : '';
     showOv(`<div class="sheet" id="sheet" role="dialog" aria-label="메뉴">
       <div class="grab"><i></i></div>
       <div class="shd"><b>메뉴</b><button id="mClose">완료</button></div>
@@ -1485,12 +1485,16 @@
         if(okOf(r)){ hideOv(); toast('PIN을 변경했어요','ok'); } else { $("#pinmsg").textContent=errOf(r)||'변경하지 못했어요'; $("#po").disabled=false; } }
       catch(e){ $("#pinmsg").textContent=netMsg(e); $("#po").disabled=false; } }; }
 
-  async function doExport(){ toast('내보내는 중…');
-    try{ const r=await rpc('admin_export',{p_pin:''}); if(!r||!okOf(r)){ toast('내보내지 못했어요','err'); return; }
+  async function doExport(){ toast('백업 파일 만드는 중…');
+    try{ const r=await rpc('admin_export',{p_pin:''}); if(!r||!okOf(r)){ toast(errOf(r)||'백업하지 못했어요','err'); return; }
       const blob=new Blob([JSON.stringify(r,null,2)],{type:'application/json'});
       const url=URL.createObjectURL(blob), a=document.createElement('a');
-      a.href=url; a.download=`greennarae_export_${new Date().toISOString().slice(0,10)}.json`;
-      document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000); toast('데이터를 내보냈어요','ok');
+      const d=new Date(), stamp=`${d.getFullYear()}${p2(d.getMonth()+1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}`;
+      a.href=url; a.download=`그린나래_백업_${stamp}.json`;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+      const n=(r.members||[]).length, v=(r.reservations||[]).length;
+      toast(n?`백업 완료 · 회원 ${n}명, 이용 기록 ${v}건`:'백업 파일을 저장했어요','ok');
+      if(!r.format) toast('서버 업그레이드(v12) 전이라 일부만 담겼어요','info');   // v12 적용 전
     }catch(e){ toast(netMsg(e),'err'); } }
 
   // ── 비밀번호 초기화: 회원 조회 → 회원별 '비밀번호 초기화' ──
