@@ -389,6 +389,10 @@
   function kst(t){ const o={}; KSTF.formatToParts(new Date(t)).forEach(p=>o[p.type]=p.value);
     return {mo:+o.month,d:+o.day,h:(+o.hour)%24,mi:+o.minute,s:+o.second,wd:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(o.weekday)}; }
   const hmK=t=>{ const k=kst(t); return String(k.h).padStart(2,'0')+':'+String(k.mi).padStart(2,'0'); };
+  const whenK=t=>{ const k=kst(t), n=kst(new Date());   // 날짜가 넘어가면 '내일 09:30'처럼
+    if(k.d===n.d && k.mo===n.mo) return hmK(t);
+    const nx=kst(new Date(Date.now()+86400000));
+    return (k.d===nx.d && k.mo===nx.mo ? '내일 ' : `${k.mo}월 ${k.d}일 `)+hmK(t); };
 
   // ── 1080×1920 스테이지 스케일 맞춤 + 화면 회전(모니터를 세웠는데 OS 회전을 안 했을 때) ──
   const stage=$("#stage");
@@ -581,11 +585,13 @@
     await loadStatus();
   }
 
-  function done(kind, seat, endAt, pos){
+  function done(kind, seat, endAt, pos, est){
     if(kind==='reserve') playDing();   // 예약 완료 사운드
     const hm=endAt?hmK(endAt):'';
     const title=kind==='reserve'?'예약 완료':kind==='renew'?'연장 완료':kind==='wait'?'대기 등록':'퇴실 완료';
-    const msg=kind==='checkout'?'이용해 주셔서 감사해요':kind==='wait'?'1순위가 되면 입실 시각을 알려드려요':'편안하게 이용하세요';
+    const msg=kind==='checkout'?'이용해 주셔서 감사해요'
+      :kind==='wait'?(est?`앞 순서가 모두 쓰면 <b style="color:var(--tint-d)">${whenK(est)}</b>쯤 입실할 수 있어요`:'1순위가 되면 입실 시각을 알려드려요')
+      :'편안하게 이용하세요';
     const head=kind==='wait'?`<span class="nw">${seat}번 좌석</span> <span class="nw">대기 <b style="color:var(--tint-d)">${pos||1}순위</b></span>`
       :`<span class="nw">${seat?seat+'번 좌석':''}${hm?' · 종료 '+hm:''}</span>`;
     $("#modal").innerHTML=`<div class="em">${I_CHECK}</div><h2>${title}</h2>
@@ -720,10 +726,13 @@
     if($("#mws")) $("#mws").onclick=async()=>{ if(await doWaitCancel(false)) doJoin(id); };
   }
   async function doJoin(id){
-    if(DEMO){ scanned.wait={seat_id:id,position:(+(statusMap[id]||{}).wait_count||0)+1}; done('wait', id, null, scanned.wait.position); return; }
+    const estOf=(pos,occ)=>{ const unit=(CFG.exam_mode?120:(+CFG.max_minutes||120))*60000;   // 앞 순서가 모두 쓴다고 봤을 때
+      const base=occ?new Date(occ).getTime():((statusMap[id]||{}).hold_until?new Date(statusMap[id].hold_until).getTime():Date.now());
+      return pos>=2 ? new Date(base+(pos-1)*unit).toISOString() : null; };
+    if(DEMO){ const p=(+(statusMap[id]||{}).wait_count||0)+1, e=estOf(p,(statusMap[id]||{}).end_at); scanned.wait={seat_id:id,position:p,est_at:e}; done('wait', id, null, p, e); return; }
     const b=$("#mwj")||$("#mws"); if(b) b.disabled=true;
     try{ const r=await rpc('wait_join',{p_token:scanned.token,p_seat:id});
-      if(r&&r.ok){ scanned.wait={seat_id:id,position:r.position,occupied_until:r.occupied_until}; done('wait', id, null, r.position); }
+      if(r&&r.ok){ const e=estOf(r.position, r.occupied_until); scanned.wait={seat_id:id,position:r.position,occupied_until:r.occupied_until,est_at:e}; done('wait', id, null, r.position, e); }
       else { toast(errKo(r&&r.error)||'대기를 걸지 못했어요',true); closeModal(); }
     }catch(e){ toast(NETERR,true); }
     await loadStatus();
@@ -743,6 +752,7 @@
       <p style="margin-bottom:26px">${ready?`<b style="color:var(--tint-d)">${w.seat_id}번 좌석</b>에 지금 입실할 수 있어요`:`<b style="color:var(--tint-d)">${w.seat_id}번 좌석</b> 대기 ${w.position}순위예요`}</p>
       <div class="myinfo"><div class="mi"><div class="k">${ready?'입실 마감':'현재 이용 종료'}</div><div class="v">${ready?(w.hold_until?hmK(w.hold_until):'—'):(w.occupied_until?hmK(w.occupied_until):'—')}</div></div>
         <div class="mi"><div class="k">내 순번</div><div class="v">${w.position}<small>순위</small></div></div></div>
+      ${(!ready && w.est_at)?`<p class="examnote" style="margin:-16px 0 24px">앞 순서가 모두 쓰면 <b style="color:var(--tint-d)">${whenK(w.est_at)}</b>쯤 입실할 수 있어요</p>`:''}
       <div class="btns"><button class="cc" id="mwc">대기 취소</button>${ready?'<button class="go" id="min">입실하기</button>':'<button class="go" id="mclose">좌석 보기</button>'}</div>
       ${ready?'<button class="linkbtn" id="mclose">좌석 보기</button>':''}`;
     $("#ov").hidden=false;

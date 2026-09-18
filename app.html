@@ -604,6 +604,10 @@
   const p2=n=>String(n).padStart(2,'0');
   function hm(t){ const d=new Date(t); return p2(d.getHours())+':'+p2(d.getMinutes()); }
   function dtK(t){ const d=new Date(t); return `${d.getMonth()+1}월 ${d.getDate()}일 ${hm(d)}`; }   // 9월 13일 14:05 (앱 전체 24시간 표기)
+  function whenHm(t){ const d=new Date(t), n=new Date();   // 날짜가 넘어가면 '내일 09:30'처럼
+    if(d.toDateString()===n.toDateString()) return hm(d);
+    const nx=new Date(n.getTime()+86400000);
+    return (d.toDateString()===nx.toDateString()?'내일 ':`${d.getMonth()+1}/${d.getDate()} `)+hm(d); }
   function fmtRem(m){ const h=Math.floor(m/60), mm=m%60; return h>0?(mm?`${h}시간 ${mm}분`:`${h}시간`):`${mm}분`; }
   const zoneName=id=>({A:'A 구역',B:'B 구역',C:'C 구역'})[String(id)[0]]||'그린나래';
 
@@ -680,7 +684,9 @@
               ? `<b>지금 입실할 수 있어요</b><span>${w.hold_until?`<span class="mono">${hm(w.hold_until)}</span>까지 `:''}키오스크에서 <span class="nw">QR을 대고</span> <span class="nw">입실해 주세요</span></span>`
               : w.position===1
                 ? `<b>다음 차례예요</b><span>지금 이용이 <span class="nw"><span class="mono">${hm(w.occupied_until)}</span>에 끝나면</span> <span class="nw">입실할 수 있어요</span></span>`
-                : `<b>앞에 ${w.position-1}명이 기다리고 있어요</b><span>1순위가 되면 <span class="nw">입실 시각을</span> <span class="nw">알림으로 보내드려요</span></span>`}</div>
+                : `<b>앞에 ${w.position-1}명이 기다리고 있어요</b><span>${w.est_at
+                    ? `앞 순서가 모두 쓰면 <span class="mono">${whenHm(w.est_at)}</span>쯤 <span class="nw">입실할 수 있어요</span>`
+                    : `1순위가 되면 <span class="nw">입실 시각을</span> <span class="nw">알림으로 보내드려요</span>`}</span>`}</div>
           </div>
           <button class="leave" id="wcancel">대기 취소</button>`;
         $("#wcancel").onclick=cancelMyWait;
