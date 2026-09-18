@@ -1286,7 +1286,7 @@
     const day=(t,addY)=>{ if(!t) return ''; const d=new Date(t); if(isNaN(d)) return ''; if(addY) d.setFullYear(d.getFullYear()+addY);
       return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`; };
     const head=['학번','이름','휴대폰 번호','권한','가입 일시','자동 탈퇴 예정일','개인정보 동의 일시','동의 안내 버전','마지막 로그인','마지막 이용','예약 수','이번 달 이용(분)','누적 이용(분)','받은 신고 수','신고한 횟수'];
-    const widths=[12,12,16,11,18,15,18,14,18,18,9,15,14,13,12];
+    const widths=[13,16,17,13,19,18,19,15,19,19,9,18,15,13,13];   // 엑셀에서 ##### 안 뜨도록(한글은 폭 2칸) 넉넉하게
     //  학번·전화번호는 글자로(엑셀이 2.02612E+08 처럼 바꾸지 않게), 횟수·분은 숫자로
     const body=rows.map(m=>[ String(m.student_no||''), m.name||'', m.phone?fmtPhone(phoneDigits(m.phone)):'',
       m.is_owner?'최고 관리자':(m.is_admin?'관리자':'회원'),
@@ -1301,9 +1301,10 @@
       blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}); ext='csv';
     }
     const url=URL.createObjectURL(blob), a=document.createElement('a');
-    a.href=url; a.download=`greennarae_members_${new Date().toISOString().slice(0,10)}.${ext}`;
+    a.href=url; a.download=`그린나래_회원_${new Date().toISOString().slice(0,10)}.${ext}`;
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
-    toast(`회원 ${rows.length}명을 내보냈어요`,'ok'); }
+    toast(`회원 ${rows.length}명을 내보냈어요`,'ok');
+    if(ext==='csv') toast('이 브라우저에서는 엑셀 형식을 만들 수 없어 CSV로 저장했어요','info'); }
   let MEMBERS=[];
   async function loadMembers(q){
     let res=null; try{ res=await rpc('me_members',{p_q:q||''}); }catch(e){}
