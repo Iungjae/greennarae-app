@@ -708,8 +708,9 @@
     const box=$("#zsum"); if(!box) return;
     let zs; try{ zs=await fetchZones(); }catch(e){ return; }
     if(!$("#zsum")) return;
-    box.innerHTML=zs.map(z=>{ const prog=z.total?Math.round(z.used/z.total*100):0;
-      return `<div class="zline"><div class="t"><span>${z.zone} 구역 <span class="cap">${z.total}석</span></span><span><b class="mono">${z.remain}</b>석 남음</span></div>
+    box.innerHTML=zs.map(z=>{ const open=z.total-z.blocked;   // 점검 좌석은 빼고 쓸 수 있는 자리 기준으로 채움
+      const prog=open>0?Math.round(z.used/open*100):0;
+      return `<div class="zline"><div class="t"><span>${z.zone} 구역 <span class="cap">${z.total}석</span></span><span>${open>0||!z.total?`<b class="mono">${z.remain}</b>석 남음`:'점검 중'}</span></div>
         <div class="bar"><i style="width:${prog}%"></i></div></div>`; }).join('');
   }
 
